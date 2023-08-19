@@ -1,0 +1,10 @@
+/target
+/dist-newstyle
+
+
+pacman-6.0.2
+nix/
+paru/
+portage/
+cargo/
+cargo-binstall/
