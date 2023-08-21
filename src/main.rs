@@ -16,6 +16,11 @@ fn main() {
     let out = String::from_utf8(out).unwrap();
     let installed: Vec<String> = out.lines().map(|l| l.to_string()).collect();
 
+    let child = Command::new("pacman").arg("-Qq").stdout(Stdio::piped()).spawn().unwrap();
+    let out = child.wait_with_output().unwrap().stdout;
+    let out = String::from_utf8(out).unwrap();
+    let allinstalled: Vec<String> = out.lines().map(|l| l.to_string()).collect();
+
     let to_remove: Vec<String> = installed.iter().map(|pkg| {
         if main.contains(pkg) || import.contains(pkg) {
             None
@@ -23,25 +28,52 @@ fn main() {
             Some(pkg)
         }
     }).flatten().cloned().collect();
-    println!("{:?}", to_remove);
 
-    Command::new("sudo")
-        .stdin(Stdio::inherit())
-        .arg("pacman")
-        .arg("-Rns").args(to_remove).spawn().unwrap().wait().unwrap();
 
+    let mut pac = main.pac.clone();
+    pac.extend(import.pac.clone());
+    let pac: Vec<String>= pac.iter().filter(|pkg| {
+        !allinstalled.contains(pkg)
+    }).cloned().collect();
+
+    let mut aur = main.aur.clone();
+    aur.extend(import.aur.clone());
+    let aur: Vec<String>= aur.iter().filter(|pkg| {
+        !allinstalled.contains(pkg)
+    }).cloned().collect();
+    // println!("{:?}", to_remove);
+
+    if !to_remove.is_empty() {
+        println!("removeing: {:?}", to_remove);
+
+        Command::new("sudo")
+            .stdin(Stdio::inherit())
+            .arg("pacman")
+            .arg("-Rns").args(to_remove).spawn().unwrap().wait().unwrap();
+    }
+    if !pac.is_empty() {
+        println!("installing: {:?}", pac);
 
     Command::new("sudo")
         .stdin(Stdio::inherit())
         .arg("pacman")
         .arg("-S")
         .arg("--needed")
-        .args(main.pac)
-        .args(import.pac).spawn().unwrap().wait().unwrap();
+        .args(pac)
+        // .args(main.pac)
+        // .args(import.pac)
+        .spawn().unwrap().wait().unwrap();
+    }
 
+    if !aur.is_empty() {
+        println!("aur installing: {:?}", aur);
     Command::new("paru").arg("-S")
         .arg("--needed")
-        .args(main.aur).args(import.aur).spawn().unwrap().wait().unwrap();
+        .args(aur)
+        // .args(main.aur)
+        // .args(import.aur)
+        .spawn().unwrap().wait().unwrap();
+    }
 }
 
 // #[derive(Debug)]
