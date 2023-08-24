@@ -10,3 +10,7 @@ cargo/
 cargo-binstall/
 iyuma/target
 freight/target
+refs/
+build
+yuma/target
+.old

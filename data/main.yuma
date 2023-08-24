@@ -3,9 +3,9 @@
 
 //! Configuration for packages to install
 
-#[cfg(windows_platform)]
-#[path = "asahi.yuma"]
-mod asahi;
+// #[cfg(windows_platform)]
+// #[path = "asahi.yuma"]
+// mod asahi;
 // include!("./asahi.yuma");
 
 fn main() {
@@ -100,5 +100,7 @@ fn main() {
         // "pfetch",
         // "zsh-antidote"
     ];
-    println!("{:?}", pac);
+
+    // println!("{:?}", pac);
+    yuma::update(&pac);
 }
