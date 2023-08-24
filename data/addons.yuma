@@ -1,0 +1,94 @@
+# vim: ft=yaml
+
+pac:
+### applictions
+# brave
+# pavucontrol
+- cpupower-gui
+- zellij
+- lf
+- bottom
+
+      # exa bat pfetch
+      # pass 
+      # ripgrep fzf
+      # starship
+
+      ### Utils
+- zathura 
+- imv
+- yt-dlp
+- imagemagick
+
+
+- sassc
+- ghc 
+- cabal-install
+- flutter 
+- python310 # node
+
+- xdg-utils
+- jql
+- swaybg # swww
+- wl-gammactl
+- wlsunset
+
+- brightnessctl 
+- alsa-utils 
+- grim
+- libreoffice-fresh
+- mako
+- slurp
+- wl-clipboard
+
+        # neo-cowsay
+        # glow gum
+        # slides charm
+        # skate vhs
+        # blender
+        # acpi
+        # hyprpicker
+        # nginx
+        # ani-cli
+        # obsidian
+        # obs-studio
+- deluge
+
+
+- discord
+- killall
+- cava
+- tty-clock
+- mpv
+- clang
+- btar
+- fd
+- file
+- ffmpeg
+- gnumake just
+- unzip
+- libnotify
+- newsboat
+- vorbis-tools
+- appimage-run
+
+- pinentry
+
+
+## Neovim deps
+- stylua
+- lua-language-server
+- taplo
+- neovim
+- zls
+- haskell-language-server
+
+### Games 
+- dolphin-emu
+# retroarch
+
+### study
+- memento
+- onscripter-en
+
+aur:

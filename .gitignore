@@ -8,3 +8,5 @@ paru/
 portage/
 cargo/
 cargo-binstall/
+iyuma/target
+freight/target
