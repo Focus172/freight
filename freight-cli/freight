@@ -1,0 +1,36 @@
+#!/bin/sh
+
+usage () {
+    echo "Freight - A code based package manager
+freight [subcommand]
+
+subcommands:
+init
+    create a new system declaration with sensible defaults
+
+add 
+    reserved word
+
+help
+    show this text"
+}
+
+
+case "$1" in
+    "init") 
+        cargo init
+        echo "yuma = { package = \"yuma\", git = \"https://github.com/Focus172/freight.git\" }" >> Cargo.toml
+    ;;
+    "add")
+        echo "todo!: add the thing to the file and rebuild"
+    ;;
+    "help")
+        usage
+    ;;
+    *) 
+        echo "Unknown Option: { $1 }"
+        echo ""
+        usage
+        exit 1
+    ;;
+esac

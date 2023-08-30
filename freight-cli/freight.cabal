@@ -71,7 +71,7 @@ executable freight
     build-depends:    base > 4
 
     -- Directories containing source files.
-    hs-source-dirs:   .
+    hs-source-dirs:   src
 
     -- Base language which the package is written in.
     default-language: GHC2021

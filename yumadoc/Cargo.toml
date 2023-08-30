@@ -1,0 +1,12 @@
+[package]
+name = "yumadoc"
+version = "0.0.1"
+edition = "2021"
+
+[dependencies]
+syn = { version = "2", features = ["full", "extra-traits"] }
+quote = "1.0"
+proc-macro2 = "1"
+
+[lib]
+proc-macro = true
