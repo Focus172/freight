@@ -1,21 +1,32 @@
+mod error;
 mod macros;
-mod pkgs;
-mod serve;
+pub mod pkgs;
+pub mod prelude;
+mod service;
 
-/// re-export of inline documentation functions
-pub use yumadoc::inline_doc as doc;
+use crate::error::YumaResult;
+// re-export of inline documentation functions
+pub use yumadoc::inline_doc as yumadoc;
 
-use std::process;
+use std::{fs, process};
 
-use pkgs::Packager;
-use serve::{ServiceBackend, Services};
+use pkgs::{Packager, Pkg};
+use service::Services;
 
-#[derive(Debug, Default)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Default, Serialize, Deserialize)]
 #[must_use]
 pub struct YumaCtx {
     enabled_packages: Vec<String>,
-    enabled_services: Vec<String>,
+    enabled_packages2: Vec<Pkg>,
+    services: Services,
+    #[serde(skip)]
+    callbacks: Vec<YumaCallback>,
 }
+
+type YumaCallback = Box<dyn FnOnce(&mut YumaCtx) -> YumaResult>;
+
 impl YumaCtx {
     pub fn add(&mut self, pkgs: &[&str]) {
         for pkg in pkgs {
@@ -26,6 +37,18 @@ impl YumaCtx {
                 self.enabled_packages.push(pkg);
             }
         }
+    }
+
+    /// The fueture interface for adding to the pkglist
+    pub fn add2(&mut self, pkgs: impl IntoIterator<Item = impl Into<pkgs::Pkg>>) {
+        self.enabled_packages2
+            .extend(pkgs.into_iter().map(Into::into));
+    }
+
+    /// Adds a function to a list of callbacks to be ran after the next call to
+    /// update
+    pub fn schedule(&mut self, f: impl FnOnce(&mut YumaCtx) -> YumaResult + 'static) {
+        self.callbacks.push(Box::new(f));
     }
 
     /// adds the pkgs to the configuration if the given hostname matches the current hostname
@@ -60,7 +83,19 @@ impl YumaCtx {
             }
         }
     }
-    pub fn update(self) {
+
+    /// Installs and enables the packages and services that have been added since
+    /// the last update.
+    ///
+    /// FUTURE INCOMPAT: Packages are not removed until [`finalize`] is called.
+    /// right now this prunes old packages but wont in the future
+    ///
+    /// # Panics
+    /// Panics when the installation of anything fails. It is best practice to
+    /// have multipule updates throughout your build so if a later stage fails
+    /// you still have the core packages (like your kernal and drivers) working.
+    ///
+    pub fn update(&mut self) {
         let mut packager = Packager::guess();
 
         let installed = packager.list_leaves();
@@ -89,20 +124,22 @@ impl YumaCtx {
             packager.install_packages(&to_install);
         }
 
-        let mut servicer = Services::guess();
-        let enabled = servicer.list_leaves_enabled();
+        // let mut servicer = Services::guess();
+        // let enabled = servicer.list_leaves_enabled();
+        //
+        // let to_enable: Vec<&str> = self
+        //     .enabled_services
+        //     .iter()
+        //     .filter(|ser| enabled.contains(ser))
+        //     .map(|s| s.as_str())
+        //     .collect();
+        // if !to_enable.is_empty() {
+        //     println!("Enabling services: {:?}", to_enable);
+        //     servicer.enable(&to_enable)
+        // }
 
-        let to_enable: Vec<&str> = self
-            .enabled_services
-            .iter()
-            .filter(|ser| enabled.contains(ser))
-            .map(|s| s.as_str())
-            .collect();
-
-        if !to_enable.is_empty() {
-            println!("Enabling services: {:?}", to_enable);
-            servicer.enable(&to_enable)
-        }
+        let w = fs::File::create("./.yumacache.json").unwrap();
+        serde_json::to_writer_pretty(w, self).unwrap();
     }
 }
 

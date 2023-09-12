@@ -1,18 +1,39 @@
 use std::process::Command;
 
-#[derive(Debug)]
-struct Service {}
+use serde::{Deserialize, Serialize};
 
-pub enum Services {
-    // OpenRc,
-    // SoystemD
+#[derive(Debug, Default, Serialize, Deserialize)]
+pub struct Services {
+    enabled: Vec<Service>,
 }
 
-impl Services {
-    pub fn guess() -> impl ServiceBackend {
-        OpenRcServicer
-    }
+#[derive(Debug, Default, Serialize, Deserialize)]
+struct Service {
+    name: String,
+    // #[serde(skip)]
+    // servicer: Servicer
 }
+
+// struct Servicer {
+//     servicer_type: ServicersType,
+//     backend: Box<dyn ServiceBackend>
+// }
+// impl Default for Servicer {
+//     fn default() -> Self {
+//         todo!()
+//     }
+// }
+
+// pub enum ServicersType {
+//     // OpenRc,
+//     // SoystemD
+// }
+//
+// impl ServicersType {
+//     pub fn guess() -> impl ServiceBackend {
+//         OpenRcServicer
+//     }
+// }
 
 pub trait ServiceBackend {
     fn enable(&mut self, name: &[&str]);

@@ -1,5 +1,24 @@
 #!/bin/sh
 
+find_backend () {
+    printf "paru"
+}
+
+pkg () {
+    case "$backend" in
+        "paru")
+            bparu "$@"
+        ;;
+        "brew")
+            bbrew "$@"
+        ;;
+        *)
+            backend=$(find_backend)
+            pkg
+        ;;
+    esac
+}
+
 usage () {
     echo "Freight - A code based package manager
 freight [subcommand]
@@ -27,10 +46,11 @@ case "$1" in
     "help")
         usage
     ;;
-    *) 
+    *)
         echo "Unknown Option: { $1 }"
         echo ""
         usage
         exit 1
     ;;
 esac
+

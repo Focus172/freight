@@ -1,9 +1,22 @@
 use std::process::Command;
 
-// pub struct Pkg {
-//     name: String,
-//     packager: Arc<Mutex<dyn PackageBackend>>,
-// }
+use serde::{Deserialize, Serialize};
+
+#[derive(Serialize, Deserialize)]
+pub struct Pkg {
+    pub name: String,
+    #[serde(skip)]
+    _packager: Packager,
+}
+
+impl From<&str> for Pkg {
+    fn from(value: &str) -> Self {
+        Pkg {
+            name: value.to_string(),
+            _packager: Packager::guess(),
+        }
+    }
+}
 
 pub trait PackageBackend {
     fn list_installed(&self) -> Vec<String>;
@@ -28,6 +41,12 @@ impl Packager {
             _packager_type: PackagerType::Paru,
             backend: Box::new(ParuPackager),
         }
+    }
+}
+
+impl Default for Packager {
+    fn default() -> Self {
+        Self::guess()
     }
 }
 
