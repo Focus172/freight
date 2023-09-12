@@ -1,8 +1,7 @@
-mod error;
-mod macros;
-pub mod pkgs;
+pub mod error;
+pub mod package;
 pub mod prelude;
-mod service;
+pub mod service;
 
 use crate::error::YumaResult;
 // re-export of inline documentation functions
@@ -10,7 +9,7 @@ pub use yumadoc::inline_doc as yumadoc;
 
 use std::{fs, process};
 
-use pkgs::{Packager, Pkg};
+use package::Packages;
 use service::Services;
 
 use serde::{Deserialize, Serialize};
@@ -19,7 +18,7 @@ use serde::{Deserialize, Serialize};
 #[must_use]
 pub struct YumaCtx {
     enabled_packages: Vec<String>,
-    enabled_packages2: Vec<Pkg>,
+    packages: Packages,
     services: Services,
     #[serde(skip)]
     callbacks: Vec<YumaCallback>,
@@ -40,8 +39,9 @@ impl YumaCtx {
     }
 
     /// The fueture interface for adding to the pkglist
-    pub fn add2(&mut self, pkgs: impl IntoIterator<Item = impl Into<pkgs::Pkg>>) {
-        self.enabled_packages2
+    pub fn add2(&mut self, pkgs: impl IntoIterator<Item = impl Into<crate::package::Pkg>>) {
+        self.packages
+            .enabled
             .extend(pkgs.into_iter().map(Into::into));
     }
 
@@ -96,7 +96,7 @@ impl YumaCtx {
     /// you still have the core packages (like your kernal and drivers) working.
     ///
     pub fn update(&mut self) {
-        let mut packager = Packager::guess();
+        let mut packager = package::Packager::guess();
 
         let installed = packager.list_leaves();
         let allinstalled = packager.list_installed();
@@ -138,11 +138,13 @@ impl YumaCtx {
         //     servicer.enable(&to_enable)
         // }
 
+    }
+}
+
+impl Drop for YumaCtx {
+    fn drop(&mut self) {
         let w = fs::File::create("./.yumacache.json").unwrap();
         serde_json::to_writer_pretty(w, self).unwrap();
     }
 }
 
-pub fn ctx() -> YumaCtx {
-    YumaCtx::default()
-}

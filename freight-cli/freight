@@ -1,5 +1,7 @@
 #!/bin/sh
 
+YUMACACHE="$HOME/.config/iyuma/.yumacache.json"
+
 find_backend () {
     printf "paru"
 }
@@ -27,6 +29,9 @@ subcommands:
 init
     create a new system declaration with sensible defaults
 
+list
+    list the installed packages
+
 add 
     reserved word
 
@@ -43,6 +48,9 @@ case "$1" in
     "add")
         echo "todo!: add the thing to the file and rebuild"
     ;;
+    "list")
+        cat $YUMACACHE | jq '.enabled_packages' | tail +2 | head -n-1 | sed 's/  //g;s/"//g;s/,//g'
+        ;;
     "help")
         usage
     ;;
