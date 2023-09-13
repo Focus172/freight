@@ -1,9 +1,13 @@
+pub mod callbacks;
 pub mod deriv;
 pub mod error;
 pub mod prelude;
 pub mod service;
 
-use crate::error::YumaResult;
+use crate::prelude::*;
+
+use crate::callbacks::Callbacks;
+
 // re-export of inline documentation functions
 pub use yumadoc::inline_doc as yumadoc;
 
@@ -21,12 +25,19 @@ pub struct YumaCtx {
     packages: Packages,
     services: Services,
     #[serde(skip)]
-    callbacks: Vec<YumaCallback>,
+    callbacks: Callbacks,
 }
 
-type YumaCallback = Box<dyn FnOnce(&mut YumaCtx) -> YumaResult>;
-
 impl YumaCtx {
+    pub const fn new() -> Self {
+        Self {
+            enabled_packages: Vec::new(),
+            packages: Packages::new(),
+            services: Services::new(),
+            callbacks: Callbacks::new(),
+        }
+    }
+
     pub fn add(&mut self, pkgs: &[&str]) {
         for pkg in pkgs {
             let pkg = pkg.to_string();
@@ -49,8 +60,8 @@ impl YumaCtx {
 
     /// Adds a function to a list of callbacks to be ran after the next call to
     /// update
-    pub fn schedule(&mut self, f: impl FnOnce(&mut YumaCtx) -> YumaResult + 'static) {
-        self.callbacks.push(Box::new(f));
+    pub fn schedule(&mut self, f: impl FnOnce(Box<dyn AsMut<YumaCtx>>) -> YumaResult + 'static) {
+        self.callbacks.queued.push(Box::new(f));
     }
 
     /// adds the pkgs to the configuration if the given hostname matches the current hostname

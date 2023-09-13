@@ -5,6 +5,6 @@ pub use crate::YumaCtx;
 
 pub use crate::deriv::builder::AsPkgBuild;
 
-pub fn ctx() -> YumaCtx {
-    YumaCtx::default()
+pub const fn ctx() -> YumaCtx {
+    YumaCtx::new()
 }

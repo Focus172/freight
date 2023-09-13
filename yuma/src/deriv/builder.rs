@@ -1,4 +1,4 @@
-use std::env;
+use std::{env, process};
 
 use super::{Packager, Pkg};
 
@@ -15,7 +15,10 @@ pub struct PkgBuilder {
 
 impl PkgBuilder {
     pub(crate) fn build(self) -> Option<Pkg> {
-        let hostname = env::var("HOST").unwrap();
+        //let hostname = env::var("HOST").unwrap();
+
+        let hostname =
+            String::from_utf8(process::Command::new("hostname").output().unwrap().stdout).unwrap();
         let arch = env::consts::ARCH.to_string();
 
         if self
@@ -58,6 +61,24 @@ impl PkgBuilder {
 
     pub fn with_packager(mut self, packager: Packager) -> Self {
         self.packager = Some(packager);
+        self
+    }
+}
+
+impl AsPkgBuild for &str {
+    fn builder(self) -> PkgBuilder {
+        self.into()
+    }
+}
+
+impl AsPkgBuild for String {
+    fn builder(self) -> PkgBuilder {
+        self.into()
+    }
+}
+
+impl AsPkgBuild for PkgBuilder {
+    fn builder(self) -> PkgBuilder {
         self
     }
 }

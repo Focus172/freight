@@ -7,6 +7,14 @@ pub struct Services {
     enabled: Vec<Service>,
 }
 
+impl Services {
+    pub const fn new() -> Self {
+        Self {
+            enabled: Vec::new(),
+        }
+    }
+}
+
 #[derive(Debug, Default, Serialize, Deserialize)]
 struct Service {
     name: String,

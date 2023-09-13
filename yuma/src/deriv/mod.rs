@@ -12,6 +12,14 @@ pub struct Packages {
     pub enabled: Vec<Pkg>,
 }
 
+impl Packages {
+    pub const fn new() -> Self {
+        Self {
+            enabled: Vec::new(),
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize)]
 pub struct Pkg {
     pub name: String,
