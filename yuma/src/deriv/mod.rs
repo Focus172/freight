@@ -1,7 +1,11 @@
-mod brew;
-mod paru;
+pub mod builder;
+mod packager;
+mod pkgs;
+mod serv;
 
 use serde::{Deserialize, Serialize};
+
+use self::packager::PackageBackend;
 
 #[derive(Default, Serialize, Deserialize)]
 pub struct Packages {
@@ -12,26 +16,16 @@ pub struct Packages {
 pub struct Pkg {
     pub name: String,
     #[serde(skip)]
-    _packager: Packager,
+    pub packager: Packager,
 }
 
 impl From<&str> for Pkg {
     fn from(value: &str) -> Self {
         Pkg {
             name: value.to_string(),
-            _packager: Packager::guess(),
+            packager: Packager::guess(),
         }
     }
-}
-
-pub trait PackageBackend {
-    fn list_installed(&self) -> Vec<String>;
-
-    fn list_leaves(&self) -> Vec<String>;
-
-    fn install_packages(&mut self, names: &[&str]);
-
-    fn remove_packages(&mut self, names: &[&str]);
 }
 
 pub struct Packager {
@@ -44,26 +38,16 @@ impl Packager {
     /// for the package backend to use
     #[cfg(target_arch = "x86_64")]
     pub fn guess() -> Self {
-        use self::paru::ParuPackager;
-
-        Self {
-            _packager_type: PackagerType::Paru,
-            backend: Box::new(ParuPackager),
-        }
+        Self::paru()
     }
 
     #[cfg(not(target_arch = "x86_64"))]
     pub fn guess() -> Self {
-        use self::brew::BrewPackager;
-
-        Self {
-            _packager_type: PackagerType::Brew,
-            backend: Box::new(BrewPackager),
-        }
+        Self::brew()
     }
 
     pub fn paru() -> Self {
-        use self::paru::ParuPackager;
+        use self::packager::ParuPackager;
 
         Self {
             _packager_type: PackagerType::Paru,
@@ -72,7 +56,7 @@ impl Packager {
     }
 
     pub fn brew() -> Self {
-        use self::brew::BrewPackager;
+        use self::packager::BrewPackager;
 
         Self {
             _packager_type: PackagerType::Brew,

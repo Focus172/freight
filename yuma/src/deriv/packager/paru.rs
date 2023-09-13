@@ -1,4 +1,5 @@
 use std::process::Command;
+
 use super::PackageBackend;
 
 pub struct ParuPackager;
@@ -37,6 +38,17 @@ impl PackageBackend for ParuPackager {
         Command::new("paru")
             .arg("-Rns")
             .args(names)
+            .spawn()
+            .unwrap()
+            .wait()
+            .unwrap();
+    }
+
+    fn install(&mut self, name: &str) {
+        Command::new("paru")
+            .arg("-S")
+            .arg("--needed")
+            .arg(name)
             .spawn()
             .unwrap()
             .wait()

@@ -1,4 +1,5 @@
 use std::process::Command;
+
 use super::PackageBackend;
 
 pub struct BrewPackager;
@@ -36,6 +37,16 @@ impl PackageBackend for BrewPackager {
         Command::new("brew")
             .arg("remove")
             .args(names)
+            .spawn()
+            .unwrap()
+            .wait()
+            .unwrap();
+    }
+
+    fn install(&mut self, name: &str) {
+        Command::new("brew")
+            .arg("install")
+            .arg(name)
             .spawn()
             .unwrap()
             .wait()

@@ -1,5 +1,5 @@
+pub mod deriv;
 pub mod error;
-pub mod package;
 pub mod prelude;
 pub mod service;
 
@@ -9,7 +9,7 @@ pub use yumadoc::inline_doc as yumadoc;
 
 use std::{fs, process};
 
-use package::Packages;
+use deriv::{builder::PkgBuilder, Packages};
 use service::Services;
 
 use serde::{Deserialize, Serialize};
@@ -39,10 +39,12 @@ impl YumaCtx {
     }
 
     /// The fueture interface for adding to the pkglist
-    pub fn add2(&mut self, pkgs: impl IntoIterator<Item = impl Into<crate::package::Pkg>>) {
-        self.packages
-            .enabled
-            .extend(pkgs.into_iter().map(Into::into));
+    pub fn add2(&mut self, pkgs: impl IntoIterator<Item = impl Into<PkgBuilder>>) {
+        self.packages.enabled.extend(
+            pkgs.into_iter()
+                .map(Into::into)
+                .filter_map(PkgBuilder::build),
+        );
     }
 
     /// Adds a function to a list of callbacks to be ran after the next call to
@@ -96,7 +98,7 @@ impl YumaCtx {
     /// you still have the core packages (like your kernal and drivers) working.
     ///
     pub fn update(&mut self) {
-        let mut packager = package::Packager::guess();
+        let mut packager = crate::deriv::Packager::guess();
 
         let installed = packager.list_leaves();
         let allinstalled = packager.list_installed();
@@ -137,7 +139,12 @@ impl YumaCtx {
         //     println!("Enabling services: {:?}", to_enable);
         //     servicer.enable(&to_enable)
         // }
+    }
 
+    pub fn update2(&mut self) {
+        for pkg in self.packages.enabled.iter_mut() {
+            pkg.packager.install(&pkg.name);
+        }
     }
 }
 
@@ -147,4 +154,3 @@ impl Drop for YumaCtx {
         serde_json::to_writer_pretty(w, self).unwrap();
     }
 }
-
