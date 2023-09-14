@@ -23,7 +23,7 @@ impl PackageBackend for ParuPackager {
             .collect()
     }
 
-    fn install_packages(&mut self, names: &[&str]) {
+    fn install_packages(&self, names: &[&str]) {
         Command::new("paru")
             .arg("-S")
             .arg("--needed")
@@ -34,7 +34,7 @@ impl PackageBackend for ParuPackager {
             .unwrap();
     }
 
-    fn remove_packages(&mut self, names: &[&str]) {
+    fn remove_packages(&self, names: &[&str]) {
         Command::new("paru")
             .arg("-Rns")
             .args(names)
@@ -44,7 +44,7 @@ impl PackageBackend for ParuPackager {
             .unwrap();
     }
 
-    fn install(&mut self, name: &str) {
+    fn install(&self, name: &str) {
         Command::new("paru")
             .arg("-S")
             .arg("--needed")

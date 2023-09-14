@@ -23,7 +23,7 @@ impl PackageBackend for BrewPackager {
             .collect()
     }
 
-    fn install_packages(&mut self, names: &[&str]) {
+    fn install_packages(&self, names: &[&str]) {
         Command::new("brew")
             .arg("install")
             .args(names)
@@ -33,7 +33,7 @@ impl PackageBackend for BrewPackager {
             .unwrap();
     }
 
-    fn remove_packages(&mut self, names: &[&str]) {
+    fn remove_packages(&self, names: &[&str]) {
         Command::new("brew")
             .arg("remove")
             .args(names)
@@ -43,7 +43,7 @@ impl PackageBackend for BrewPackager {
             .unwrap();
     }
 
-    fn install(&mut self, name: &str) {
+    fn install(&self, name: &str) {
         Command::new("brew")
             .arg("install")
             .arg(name)

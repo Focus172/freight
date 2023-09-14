@@ -7,11 +7,11 @@ pub use self::paru::ParuPackager;
 pub trait PackageBackend {
     fn list_installed(&self) -> Vec<String>;
 
-    fn list_leaves(&self) -> Vec<String>;
+    fn list_leaves(&self, ) -> Vec<String>;
 
-    fn install_packages(&mut self, names: &[&str]);
+    fn install_packages(&self, names: &[&str]);
 
-    fn remove_packages(&mut self, names: &[&str]);
+    fn remove_packages(&self, names: &[&str]);
 
-    fn install(&mut self, name: &str);
+    fn install(&self, name: &str);
 }

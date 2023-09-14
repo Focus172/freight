@@ -6,11 +6,12 @@ pub mod service;
 
 use crate::prelude::*;
 
+use deriv::list::AsPkgBuilderList;
 // re-export of inline documentation functions
 pub use yumadoc::inline_doc as yumadoc;
 
 use serde::{Deserialize, Serialize};
-use std::{fs, process};
+use std::fs;
 
 use crate::{callbacks::Callbacks, deriv::Packages, service::Services};
 
@@ -34,53 +35,20 @@ impl YumaCtx {
         }
     }
 
-    #[deprecated = "use add2"]
-    pub fn add(&mut self, pkgs: &[&str]) {
-        // self.add2(pkgs.iter().map(|s| *s));
-
-        for pkg in pkgs {
-            let pkg = pkg.to_string();
-            if self.enabled_packages.contains(&pkg) {
-                println!("Duplicate Package skipped: {}", pkg);
-            } else {
-                self.enabled_packages.push(pkg);
-            }
-        }
-    }
-
-    /// The fueture interface for adding to the pkglist
-    pub fn add2(&mut self, pkgs: impl IntoIterator<Item = impl AsPkgBuild>) {
-        self.packages
-            .enabled
-            .extend(pkgs.into_iter().flat_map(AsPkgBuild::build));
+    /// Interface for adding to the pkglist. See [`PkgBuilder`] for info on customization
+    pub fn add(&mut self, pkgs: impl AsPkgBuilderList) {
+        self.packages.enabled.extend(
+            pkgs.list()
+                .into_iter()
+                .flat_map(AsPkgBuild::build)
+                .flatten(),
+        );
     }
 
     /// Adds a function to a list of callbacks to be ran after the next call to
     /// update
     pub fn schedule(&mut self, f: impl FnOnce(Box<dyn AsMut<YumaCtx>>) -> YumaResult + 'static) {
         self.callbacks.queued.push(Box::new(f));
-    }
-
-    /// adds the pkgs to the configuration if the given hostname matches the current hostname
-    #[deprecated = ".builder.on_hosts()"]
-    pub fn add_if_host(&mut self, host: &str, pkgs: &[&str]) {
-        let _h =
-            String::from_utf8(process::Command::new("hostname").output().unwrap().stdout).unwrap();
-        let hostname = _h.trim();
-        if hostname == host {
-            self.add(pkgs)
-        }
-    }
-
-    /// adds the packages to the config if any of the given hosts matches the current
-    #[deprecated = "use add2 + .builder.on_hosts()"]
-    pub fn add_if_hosts(&mut self, hosts: &[&str], pkgs: &[&str]) {
-        let _h =
-            String::from_utf8(process::Command::new("hostname").output().unwrap().stdout).unwrap();
-        let hostname = _h.trim();
-        if hosts.contains(&hostname) {
-            self.add(pkgs)
-        }
     }
 
     /// # Safety
@@ -96,34 +64,58 @@ impl YumaCtx {
         }
     }
 
+    pub fn update_single(&mut self) {
+        // TODO: find a way to use the bundled packager for each thing
+        let packager = crate::deriv::Packager::guess();
+
+        for pkg in self.packages.enabled.iter_mut() {
+            log::info!("installing: {}", &pkg.name);
+            // pkg.packager.install(&pkg.name);
+            // packager.install(&pkg.name);
+            packager.install_packages(&[&pkg.name]);
+        }
+    }
+
     /// Installs and enables the packages and services that have been added since
     /// the last update.
     ///
-    /// FUTURE INCOMPAT: Packages are not removed until [`finalize`] is called.
-    /// right now this prunes old packages but wont in the future
+    /// # Future Compat
+    /// This meathod is the most likely to change as time goes on. Here are some
+    /// of the things that may change as they go on.
+    /// - Packages are not removed until [`finalize`] is called.
+    /// - Enable and disable services
     ///
-    /// # Panics
+    /// ## Panics
     /// Panics when the installation of anything fails. It is best practice to
     /// have multipule updates throughout your build so if a later stage fails
     /// you still have the core packages (like your kernal and drivers) working.
-    ///
     pub fn update(&mut self) {
-        let mut packager = crate::deriv::Packager::guess();
+        let packager = crate::deriv::Packager::guess();
+
+        log::info!("installing all thing things");
+
+        let pkgnames: Vec<&str> = self
+            .packages
+            .enabled
+            .iter()
+            .map(|p| p.name.as_str())
+            .collect();
+
+        // packager.install_packages(&pkgnames);
 
         let installed = packager.list_leaves();
         let allinstalled = packager.list_installed();
 
         let to_remove: Vec<&str> = installed
             .iter()
-            .filter(|pkg| !&self.enabled_packages.contains(pkg))
+            .filter(|pkg| !pkgnames.contains(&pkg.as_str()))
             .map(|s| s.as_str())
             .collect();
 
-        let to_install: Vec<&str> = self
-            .enabled_packages
+        let to_install: Vec<&str> = pkgnames
             .iter()
-            .filter(|pkg| !allinstalled.contains(pkg))
-            .map(|s| s.as_str())
+            .filter(|pkg| !allinstalled.contains(&pkg.to_string()))
+            .map(|s| *s)
             .collect();
 
         if !to_remove.is_empty() {
@@ -150,18 +142,6 @@ impl YumaCtx {
         //     servicer.enable(&to_enable)
         // }
     }
-
-    pub fn update2(&mut self) {
-        // TODO: find a way to use the bundled packager for each thing
-        let mut packager = crate::deriv::Packager::guess();
-
-        for pkg in self.packages.enabled.iter_mut() {
-            log::info!("installing: {}", &pkg.name);
-            // pkg.packager.install(&pkg.name);
-            // packager.install(&pkg.name);
-            packager.install_packages(&[&pkg.name]);
-        }
-    }
 }
 
 impl Drop for YumaCtx {
@@ -185,10 +165,19 @@ pub fn init_logger_with_level(level: log::LevelFilter) -> YumaResult {
     Ok(())
 }
 
-// #[cfg(test)]
-// mod test {
-//     #[test]
-//     fn name() {
-//         unimplemented!()
-//     }
-// }
+#[cfg(test)]
+mod test {
+    use crate::prelude::*;
+
+    #[test]
+    fn allowed_addables() {
+        let mut ctx = ctx();
+
+        ctx.add("test");
+        ctx.add("test".builder().on_hosts(&["test"]));
+        ctx.add(["test"]);
+        ctx.add(["test"].builder());
+        ctx.add(("test", "test").builder());
+        ctx.add(["test".builder()]);
+    }
+}

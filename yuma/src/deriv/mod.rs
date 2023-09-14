@@ -1,11 +1,14 @@
 pub mod builder;
+pub mod list;
 mod packager;
 mod pkgs;
 mod serv;
 
+use std::rc::Rc;
+
 use serde::{Deserialize, Serialize};
 
-pub use self::builder::AsPkgBuild;
+pub use self::builder::{AsPkgBuild, PkgBuilder};
 use self::packager::PackageBackend;
 
 #[derive(Default, Serialize, Deserialize)]
@@ -37,22 +40,22 @@ impl From<&str> for Pkg {
     }
 }
 
+#[derive(Clone)]
 pub struct Packager {
     _packager_type: PackagerType,
-    backend: Box<dyn PackageBackend>,
+    backend: Rc<dyn PackageBackend>,
 }
 
 impl Packager {
     /// Based on the operating system and installed packages make the best guess
     /// for the package backend to use
-    #[cfg(target_arch = "x86_64")]
     pub fn guess() -> Self {
-        Self::paru()
-    }
+        // HACK: this gets it working for just my system but this should be a smarter system
+        #[cfg(target_arch = "x86_64")]
+        return Self::paru();
 
-    #[cfg(not(target_arch = "x86_64"))]
-    pub fn guess() -> Self {
-        Self::brew()
+        #[cfg(not(target_arch = "x86_64"))]
+        return Self::brew();
     }
 
     pub fn paru() -> Self {
@@ -60,7 +63,7 @@ impl Packager {
 
         Self {
             _packager_type: PackagerType::Paru,
-            backend: Box::new(ParuPackager),
+            backend: Rc::new(ParuPackager),
         }
     }
 
@@ -69,7 +72,7 @@ impl Packager {
 
         Self {
             _packager_type: PackagerType::Brew,
-            backend: Box::new(BrewPackager),
+            backend: Rc::new(BrewPackager),
         }
     }
 }
@@ -81,7 +84,7 @@ impl Default for Packager {
 }
 
 impl std::ops::Deref for Packager {
-    type Target = Box<dyn PackageBackend>;
+    type Target = Rc<dyn PackageBackend>;
 
     fn deref(&self) -> &Self::Target {
         &self.backend
@@ -94,6 +97,7 @@ impl std::ops::DerefMut for Packager {
     }
 }
 
+#[derive(Clone)]
 pub enum PackagerType {
     Paru,
     Brew, //
