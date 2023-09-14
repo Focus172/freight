@@ -1,9 +1,13 @@
-use std::{env, process};
+use std::env;
 
 use super::{Packager, Pkg};
 
-pub trait AsPkgBuild {
+pub trait AsPkgBuild: Sized {
     fn builder(self) -> PkgBuilder;
+
+    fn build(self) -> Option<Pkg> {
+        self.builder().build()
+    }
 }
 
 pub struct PkgBuilder {
@@ -14,11 +18,9 @@ pub struct PkgBuilder {
 }
 
 impl PkgBuilder {
-    pub(crate) fn build(self) -> Option<Pkg> {
-        //let hostname = env::var("HOST").unwrap();
-
-        let hostname =
-            String::from_utf8(process::Command::new("hostname").output().unwrap().stdout).unwrap();
+    fn build(self) -> Option<Pkg> {
+        // HACK: error handling here is a real goof
+        let hostname = nix::unistd::gethostname().ok()?.into_string().ok()?;
         let arch = env::consts::ARCH.to_string();
 
         if self

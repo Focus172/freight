@@ -5,6 +5,7 @@ mod serv;
 
 use serde::{Deserialize, Serialize};
 
+pub use self::builder::AsPkgBuild;
 use self::packager::PackageBackend;
 
 #[derive(Default, Serialize, Deserialize)]

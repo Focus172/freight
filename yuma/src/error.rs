@@ -7,10 +7,12 @@ use thiserror::Error;
 pub enum YumaError {
     #[error("Io failure: {0}")]
     Io(#[from] io::Error),
+    #[error("Failed to setup logger: {0}")]
+    Log(#[from] log::SetLoggerError),
     #[error("Packages specified that could not be resolved: {name:?}")]
     InvalidPackage { name: String },
     #[error(transparent)]
-    Static(anyhow::Error),
+    Static(#[from] anyhow::Error),
     #[error("Unknown error")]
     Unknown,
 }

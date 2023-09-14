@@ -6,17 +6,13 @@ pub mod service;
 
 use crate::prelude::*;
 
-use crate::callbacks::Callbacks;
-
 // re-export of inline documentation functions
 pub use yumadoc::inline_doc as yumadoc;
 
+use serde::{Deserialize, Serialize};
 use std::{fs, process};
 
-use deriv::{builder::PkgBuilder, Packages};
-use service::Services;
-
-use serde::{Deserialize, Serialize};
+use crate::{callbacks::Callbacks, deriv::Packages, service::Services};
 
 #[derive(Default, Serialize, Deserialize)]
 #[must_use]
@@ -38,7 +34,10 @@ impl YumaCtx {
         }
     }
 
+    #[deprecated = "use add2"]
     pub fn add(&mut self, pkgs: &[&str]) {
+        // self.add2(pkgs.iter().map(|s| *s));
+
         for pkg in pkgs {
             let pkg = pkg.to_string();
             if self.enabled_packages.contains(&pkg) {
@@ -50,12 +49,10 @@ impl YumaCtx {
     }
 
     /// The fueture interface for adding to the pkglist
-    pub fn add2(&mut self, pkgs: impl IntoIterator<Item = impl Into<PkgBuilder>>) {
-        self.packages.enabled.extend(
-            pkgs.into_iter()
-                .map(Into::into)
-                .filter_map(PkgBuilder::build),
-        );
+    pub fn add2(&mut self, pkgs: impl IntoIterator<Item = impl AsPkgBuild>) {
+        self.packages
+            .enabled
+            .extend(pkgs.into_iter().flat_map(AsPkgBuild::build));
     }
 
     /// Adds a function to a list of callbacks to be ran after the next call to
@@ -65,6 +62,7 @@ impl YumaCtx {
     }
 
     /// adds the pkgs to the configuration if the given hostname matches the current hostname
+    #[deprecated = ".builder.on_hosts()"]
     pub fn add_if_host(&mut self, host: &str, pkgs: &[&str]) {
         let _h =
             String::from_utf8(process::Command::new("hostname").output().unwrap().stdout).unwrap();
@@ -75,6 +73,7 @@ impl YumaCtx {
     }
 
     /// adds the packages to the config if any of the given hosts matches the current
+    #[deprecated = "use add2 + .builder.on_hosts()"]
     pub fn add_if_hosts(&mut self, hosts: &[&str], pkgs: &[&str]) {
         let _h =
             String::from_utf8(process::Command::new("hostname").output().unwrap().stdout).unwrap();
@@ -128,12 +127,12 @@ impl YumaCtx {
             .collect();
 
         if !to_remove.is_empty() {
-            println!("Removing: {:?}", to_remove);
+            log::info!("Removing: {:?}", to_remove);
             packager.remove_packages(&to_remove);
         }
 
         if !to_install.is_empty() {
-            println!("Installing: {:?}", to_install);
+            log::info!("Installing: {:?}", to_install);
             packager.install_packages(&to_install);
         }
 
@@ -153,8 +152,14 @@ impl YumaCtx {
     }
 
     pub fn update2(&mut self) {
+        // TODO: find a way to use the bundled packager for each thing
+        let mut packager = crate::deriv::Packager::guess();
+
         for pkg in self.packages.enabled.iter_mut() {
-            pkg.packager.install(&pkg.name);
+            log::info!("installing: {}", &pkg.name);
+            // pkg.packager.install(&pkg.name);
+            // packager.install(&pkg.name);
+            packager.install_packages(&[&pkg.name]);
         }
     }
 }
@@ -165,3 +170,25 @@ impl Drop for YumaCtx {
         serde_json::to_writer_pretty(w, self).unwrap();
     }
 }
+
+pub fn init_logger() -> YumaResult {
+    init_logger_with_level(log::LevelFilter::Trace)
+}
+
+pub fn init_logger_with_level(level: log::LevelFilter) -> YumaResult {
+    simplelog::TermLogger::init(
+        level,
+        simplelog::Config::default(),
+        simplelog::TerminalMode::Mixed,
+        simplelog::ColorChoice::Auto,
+    )?;
+    Ok(())
+}
+
+// #[cfg(test)]
+// mod test {
+//     #[test]
+//     fn name() {
+//         unimplemented!()
+//     }
+// }
