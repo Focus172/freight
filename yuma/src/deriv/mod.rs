@@ -8,7 +8,7 @@ use std::rc::Rc;
 
 use serde::{Deserialize, Serialize};
 
-pub use self::builder::{AsPkgBuild, PkgBuilder};
+pub use self::builder::PkgBuilder;
 use self::packager::PackageBackend;
 
 #[derive(Default, Serialize, Deserialize)]

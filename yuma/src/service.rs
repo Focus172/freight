@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct Services {
-    enabled: Vec<Service>,
+    pub enabled: Vec<Service>,
 }
 
 impl Services {
@@ -16,7 +16,7 @@ impl Services {
 }
 
 #[derive(Debug, Default, Serialize, Deserialize)]
-struct Service {
+pub struct Service {
     name: String,
     // #[serde(skip)]
     // servicer: Servicer

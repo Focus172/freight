@@ -2,14 +2,9 @@ use std::env;
 
 use super::{Packager, Pkg};
 
-pub trait AsPkgBuild: Sized {
-    fn builder(self) -> PkgBuilder;
+use crate::prelude::*;
 
-    fn build(self) -> Option<Vec<Pkg>> {
-        self.builder().build()
-    }
-}
-
+#[derive(Default)]
 pub struct PkgBuilder {
     names: Vec<String>,
     allowed_hostnames: Option<Vec<String>>,
@@ -18,7 +13,7 @@ pub struct PkgBuilder {
 }
 
 impl PkgBuilder {
-    fn build(self) -> Option<Vec<Pkg>> {
+    pub(crate) fn build(self) -> Option<Vec<Pkg>> {
         // HACK: error handling here is a real goof
         let hostname = nix::unistd::gethostname().ok()?.into_string().ok()?;
         let arch = env::consts::ARCH.to_string();
@@ -72,43 +67,30 @@ impl PkgBuilder {
     }
 }
 
-impl AsPkgBuild for &str {
-    fn builder(self) -> PkgBuilder {
+pub trait AsBuilder: Into<PkgBuilder> {
+    fn b(self) -> PkgBuilder {
         self.into()
     }
 }
 
-impl AsPkgBuild for String {
-    fn builder(self) -> PkgBuilder {
-        self.into()
-    }
-}
+impl AsBuilder for &str {}
+impl AsBuilder for String {}
+impl AsBuilder for PkgBuilder {}
+// impl AsBuilder for &dyn AsBuilder {}
 
-impl AsPkgBuild for &[&str] {
-    fn builder(self) -> PkgBuilder {
-        PkgBuilder {
-            names: self.iter().map(|s| s.to_string()).collect(),
-            allowed_hostnames: None,
-            allowed_arches: None,
-            packager: None,
-        }
-    }
-}
+impl<const N: usize> AsBuilder for [&str; N] {}
+impl<const N: usize> AsBuilder for [String; N] {}
+impl<const N: usize> AsBuilder for [PkgBuilder; N] {}
+// impl<const N: usize> AsBuilder for [&dyn AsBuilder; N] {}
 
-impl AsPkgBuild for PkgBuilder {
-    fn builder(self) -> PkgBuilder {
-        self
-    }
-}
+impl AsBuilder for &[String] {}
+impl AsBuilder for &[&str] {}
+impl AsBuilder for &[PkgBuilder] {}
+// impl AsBuilder for &[&dyn AsBuilder] {}
 
 impl From<&str> for PkgBuilder {
     fn from(value: &str) -> Self {
-        PkgBuilder {
-            names: vec![value.to_string()],
-            allowed_hostnames: None,
-            allowed_arches: None,
-            packager: None,
-        }
+        value.to_string().into()
     }
 }
 
@@ -116,9 +98,109 @@ impl From<String> for PkgBuilder {
     fn from(value: String) -> Self {
         PkgBuilder {
             names: vec![value],
-            allowed_hostnames: None,
-            allowed_arches: None,
-            packager: None,
+            ..default()
+        }
+    }
+}
+
+impl<const N: usize> From<[&str; N]> for PkgBuilder {
+    fn from(value: [&str; N]) -> Self {
+        // PERF: Even though we own the data there is nothing to be gained from
+        // taking it as we need to clone it to make it as string
+        value.as_slice().into()
+    }
+}
+
+impl<const N: usize> From<[String; N]> for PkgBuilder {
+    fn from(value: [String; N]) -> Self {
+        // PERF: we own the data so we dont need to copy
+        PkgBuilder {
+            names: Vec::from(value),
+            ..default()
+        }
+    }
+}
+
+impl<const N: usize> From<[PkgBuilder; N]> for PkgBuilder {
+    fn from(value: [PkgBuilder; N]) -> Self {
+        let mut names = Vec::new();
+        let mut allowed_hostnames = None;
+        let mut allowed_arches = None;
+        let mut packager = None;
+        for pkg in value {
+            names.extend(pkg.names);
+
+            if let Some(hosts) = pkg.allowed_hostnames {
+                allowed_hostnames.get_or_insert(Vec::new()).extend(hosts);
+            }
+
+            if let Some(arches) = pkg.allowed_arches {
+                allowed_arches.get_or_insert(Vec::new()).extend(arches);
+            }
+
+            if let Some(pkgr) = pkg.packager {
+                packager.get_or_insert(pkgr);
+            }
+        }
+
+        PkgBuilder {
+            names,
+            allowed_hostnames,
+            allowed_arches,
+            packager,
+        }
+    }
+}
+
+impl From<&[PkgBuilder]> for PkgBuilder {
+    fn from(value: &[PkgBuilder]) -> Self {
+        let mut names = Vec::new();
+        let mut allowed_hostnames = None;
+        let mut allowed_arches = None;
+        let mut packager = None;
+        for pkg in value {
+            names.extend(pkg.names.clone());
+
+            if let Some(hosts) = &pkg.allowed_hostnames {
+                allowed_hostnames
+                    .get_or_insert(Vec::new())
+                    .extend(hosts.clone());
+            }
+
+            if let Some(arches) = &pkg.allowed_arches {
+                allowed_arches
+                    .get_or_insert(Vec::new())
+                    .extend(arches.clone());
+            }
+
+            if let Some(pkgr) = &pkg.packager {
+                packager.get_or_insert(pkgr.clone());
+            }
+        }
+
+        PkgBuilder {
+            names,
+            allowed_hostnames,
+            allowed_arches,
+            packager,
+        }
+    }
+}
+
+impl From<&[&str]> for PkgBuilder {
+    fn from(value: &[&str]) -> Self {
+        PkgBuilder {
+            names: value.iter().map(|s| s.to_string()).collect(),
+            ..default()
+        }
+    }
+}
+
+impl From<&[String]> for PkgBuilder {
+    fn from(value: &[String]) -> Self {
+        PkgBuilder {
+            names: value.to_vec(),
+            ..default()
         }
     }
 }
@@ -132,6 +214,7 @@ impl From<String> for PkgBuilder {
 // ============================================================================
 // ----------------------------------------------------------------------------
 
+/*
 impl AsPkgBuild for (&str, &str) {
     fn builder(self) -> PkgBuilder {
         PkgBuilder {
@@ -243,3 +326,4 @@ impl AsPkgBuild for (&str, &str, &str, &str, &str, &str, &str, &str) {
         }
     }
 }
+*/

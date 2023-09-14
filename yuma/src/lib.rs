@@ -18,20 +18,21 @@ use crate::{callbacks::Callbacks, deriv::Packages, service::Services};
 #[derive(Default, Serialize, Deserialize)]
 #[must_use]
 pub struct YumaCtx {
-    enabled_packages: Vec<String>,
     packages: Packages,
     services: Services,
     #[serde(skip)]
     callbacks: Callbacks,
+    #[serde(skip)]
+    write_on_drop: bool,
 }
 
 impl YumaCtx {
     pub const fn new() -> Self {
         Self {
-            enabled_packages: Vec::new(),
             packages: Packages::new(),
             services: Services::new(),
             callbacks: Callbacks::new(),
+            write_on_drop: true,
         }
     }
 
@@ -40,29 +41,29 @@ impl YumaCtx {
         self.packages.enabled.extend(
             pkgs.list()
                 .into_iter()
-                .flat_map(AsPkgBuild::build)
+                .flat_map(PkgBuilder::build)
                 .flatten(),
         );
     }
 
     /// Adds a function to a list of callbacks to be ran after the next call to
     /// update
-    pub fn schedule(&mut self, f: impl FnOnce(Box<dyn AsMut<YumaCtx>>) -> YumaResult + 'static) {
+    pub fn schedule(&mut self, f: impl FnOnce() -> YumaResult + 'static) {
         self.callbacks.queued.push(Box::new(f));
     }
 
-    /// # Safety
-    /// this meathod is very untested and could brick you device
-    pub unsafe fn enable(&mut self, services: &[&str]) {
-        for ser in services {
-            let ser = ser.to_string();
-            if self.enabled_packages.contains(&ser) {
-                println!("Duplicate Service skipped: {}", ser);
-            } else {
-                self.enabled_packages.push(ser);
-            }
-        }
-    }
+    // # Safety
+    // this meathod is very untested and could brick you device
+    // pub unsafe fn enable(&mut self, services: &[&str]) {
+    //     for ser in services {
+    //         let ser = ser.to_string();
+    //         if self.services.enabled.contains(&ser) {
+    //             println!("Duplicate Service skipped: {}", ser);
+    //         } else {
+    //             self.services.enabled.push(ser);
+    //         }
+    //     }
+    // }
 
     pub fn update_single(&mut self) {
         // TODO: find a way to use the bundled packager for each thing
@@ -108,14 +109,14 @@ impl YumaCtx {
 
         let to_remove: Vec<&str> = installed
             .iter()
-            .filter(|pkg| !pkgnames.contains(&pkg.as_str()))
             .map(|s| s.as_str())
+            .filter(|pkg| !pkgnames.contains(pkg))
             .collect();
 
         let to_install: Vec<&str> = pkgnames
             .iter()
             .filter(|pkg| !allinstalled.contains(&pkg.to_string()))
-            .map(|s| *s)
+            .cloned()
             .collect();
 
         if !to_remove.is_empty() {
@@ -141,13 +142,26 @@ impl YumaCtx {
         //     println!("Enabling services: {:?}", to_enable);
         //     servicer.enable(&to_enable)
         // }
+
+        for fun in self.callbacks.queued.drain(..) {
+            fun().unwrap();
+        }
+    }
+
+    /// Sets an internal variable that singals to not cache the output of this
+    /// derivation. This can allow for building a revertable version of your
+    /// system or for running unit test on your config if you are ill
+    pub fn skip_cache(&mut self) {
+        self.write_on_drop = false;
     }
 }
 
 impl Drop for YumaCtx {
     fn drop(&mut self) {
-        let w = fs::File::create("./.yumacache.json").unwrap();
-        serde_json::to_writer_pretty(w, self).unwrap();
+        if self.write_on_drop {
+            let w = fs::File::create("./.yumacache.json").unwrap();
+            serde_json::to_writer_pretty(w, self).unwrap();
+        }
     }
 }
 
@@ -173,11 +187,13 @@ mod test {
     fn allowed_addables() {
         let mut ctx = ctx();
 
+        ctx.skip_cache();
+
         ctx.add("test");
-        ctx.add("test".builder().on_hosts(&["test"]));
+        ctx.add("test".b().on_hosts(&["test"]));
         ctx.add(["test"]);
-        ctx.add(["test"].builder());
-        ctx.add(("test", "test").builder());
-        ctx.add(["test".builder()]);
+        ctx.add(["test", "test"].b());
+        // ctx.add(("test", "test").builder());
+        ctx.add(["test".b()].b());
     }
 }

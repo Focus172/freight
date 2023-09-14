@@ -1,4 +1,4 @@
-use super::{AsPkgBuild, PkgBuilder};
+use super::PkgBuilder;
 
 /// A wrapper trait that allows that add meathod to take both arrays and single builders
 pub trait AsPkgBuilderList {
@@ -25,6 +25,6 @@ impl<const N: usize> AsPkgBuilderList for [PkgBuilder; N] {
 
 impl<const N: usize> AsPkgBuilderList for [&str; N] {
     fn list(self) -> Vec<PkgBuilder> {
-        self.into_iter().map(|s| s.builder()).collect()
+        vec![self.as_slice().into()]
     }
 }

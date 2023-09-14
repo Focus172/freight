@@ -1,4 +1,4 @@
-use crate::{prelude::YumaResult, YumaCtx};
+use crate::prelude::YumaResult;
 
 #[derive(Default)]
 pub struct Callbacks {
@@ -6,7 +6,7 @@ pub struct Callbacks {
 }
 
 // type YumaCallback = Box<dyn FnOnce(Mutex<YumaCtx>) -> YumaResult>;
-type YumaCallback = Box<dyn FnOnce(Box<dyn AsMut<YumaCtx>>) -> YumaResult>;
+type YumaCallback = Box<dyn FnOnce() -> YumaResult>;
 
 impl Callbacks {
     pub const fn new() -> Self {
