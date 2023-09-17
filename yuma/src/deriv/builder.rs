@@ -9,6 +9,7 @@ pub struct PkgBuilder {
     names: Vec<String>,
     allowed_hostnames: Option<Vec<String>>,
     allowed_arches: Option<Vec<String>>,
+    allowed_oss: Option<Vec<String>>,
     packager: Option<Packager>,
 }
 
@@ -17,6 +18,7 @@ impl PkgBuilder {
         // HACK: error handling here is a real goof
         let hostname = nix::unistd::gethostname().ok()?.into_string().ok()?;
         let arch = env::consts::ARCH.to_string();
+        let os = env::consts::OS.to_string();
 
         if self
             .allowed_hostnames
@@ -32,6 +34,10 @@ impl PkgBuilder {
             return None;
         }
 
+        if self.allowed_oss.is_some_and(|oss| !oss.contains(&os)) {
+            return None;
+        }
+
         let packager = self.packager.unwrap_or_default();
 
         Some(
@@ -43,6 +49,27 @@ impl PkgBuilder {
                 })
                 .collect(),
         )
+    }
+
+    /// Configures the package to only be built in if the current os matches
+    /// the given name. Although you can put any text in this function it will
+    /// only have an affect if you use one of the following:
+    ///   linux, macos, ios, freebsd, dragonfly, netbsd, openbsd, solaris,
+    ///   android, windows
+    pub fn on_os(mut self, os: impl Into<String>) -> Self {
+        match self.allowed_oss.as_mut() {
+            Some(h) => h.push(os.into()),
+            None => self.allowed_oss = Some(vec![os.into()]),
+        }
+        self
+    }
+
+    pub fn on_host(mut self, host: impl Into<String>) -> Self {
+        match self.allowed_hostnames.as_mut() {
+            Some(h) => h.push(host.into()),
+            None => self.allowed_hostnames = Some(vec![host.into()]),
+        }
+        self
     }
 
     pub fn on_hosts(mut self, hosts: &[&str]) -> Self {
@@ -126,6 +153,7 @@ impl<const N: usize> From<[PkgBuilder; N]> for PkgBuilder {
         let mut names = Vec::new();
         let mut allowed_hostnames = None;
         let mut allowed_arches = None;
+        let mut allowed_oss = None;
         let mut packager = None;
         for pkg in value {
             names.extend(pkg.names);
@@ -138,6 +166,10 @@ impl<const N: usize> From<[PkgBuilder; N]> for PkgBuilder {
                 allowed_arches.get_or_insert(Vec::new()).extend(arches);
             }
 
+            if let Some(oss) = pkg.allowed_oss {
+                allowed_oss.get_or_insert(Vec::new()).extend(oss);
+            }
+
             if let Some(pkgr) = pkg.packager {
                 packager.get_or_insert(pkgr);
             }
@@ -147,6 +179,7 @@ impl<const N: usize> From<[PkgBuilder; N]> for PkgBuilder {
             names,
             allowed_hostnames,
             allowed_arches,
+            allowed_oss,
             packager,
         }
     }
@@ -154,36 +187,7 @@ impl<const N: usize> From<[PkgBuilder; N]> for PkgBuilder {
 
 impl From<&[PkgBuilder]> for PkgBuilder {
     fn from(value: &[PkgBuilder]) -> Self {
-        let mut names = Vec::new();
-        let mut allowed_hostnames = None;
-        let mut allowed_arches = None;
-        let mut packager = None;
-        for pkg in value {
-            names.extend(pkg.names.clone());
-
-            if let Some(hosts) = &pkg.allowed_hostnames {
-                allowed_hostnames
-                    .get_or_insert(Vec::new())
-                    .extend(hosts.clone());
-            }
-
-            if let Some(arches) = &pkg.allowed_arches {
-                allowed_arches
-                    .get_or_insert(Vec::new())
-                    .extend(arches.clone());
-            }
-
-            if let Some(pkgr) = &pkg.packager {
-                packager.get_or_insert(pkgr.clone());
-            }
-        }
-
-        PkgBuilder {
-            names,
-            allowed_hostnames,
-            allowed_arches,
-            packager,
-        }
+        (*value).into()
     }
 }
 

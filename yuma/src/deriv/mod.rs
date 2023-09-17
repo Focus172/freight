@@ -22,6 +22,10 @@ impl Packages {
             enabled: Vec::new(),
         }
     }
+
+    pub fn add(&mut self, pkgs: impl Iterator<Item = PkgBuilder>) {
+        self.enabled.extend(pkgs.flat_map(|p| p.build()).flatten())
+    }
 }
 
 #[derive(Serialize, Deserialize)]

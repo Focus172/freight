@@ -16,7 +16,6 @@ use std::fs;
 use crate::{callbacks::Callbacks, deriv::Packages, service::Services};
 
 #[derive(Default, Serialize, Deserialize)]
-#[must_use]
 pub struct YumaCtx {
     packages: Packages,
     services: Services,
@@ -36,20 +35,34 @@ impl YumaCtx {
         }
     }
 
-    /// Interface for adding to the pkglist. See [`PkgBuilder`] for info on customization
+    /// Interface for adding to the pkglist. See [`PkgBuilder`] for info
+    /// on customization.
+    ///
+    /// Examples include
+    /// ```rust
+    /// use yuma::prelude::*;
+    /// let mut ctx = ctx();
+    /// ctx.skip_cache();
+    ///
+    /// ctx.add("test");
+    /// ctx.add("test".b().on_hosts(&["test"]));
+    /// ctx.add(["test"]);
+    /// ctx.add(["test", "test"].b());
+    /// ctx.add(["test".b()].b());
+    /// ```
     pub fn add(&mut self, pkgs: impl AsPkgBuilderList) {
-        self.packages.enabled.extend(
-            pkgs.list()
-                .into_iter()
-                .flat_map(PkgBuilder::build)
-                .flatten(),
-        );
+        self.packages.add(pkgs.list().into_iter())
+    }
+
+    /// Alias for [`add`] for a potential name change
+    pub fn with(&mut self, pkgs: impl AsPkgBuilderList) {
+        self.add(pkgs)
     }
 
     /// Adds a function to a list of callbacks to be ran after the next call to
     /// update
-    pub fn schedule(&mut self, f: impl FnOnce() -> YumaResult + 'static) {
-        self.callbacks.queued.push(Box::new(f));
+    pub fn schedule(&mut self, name: impl Into<String>, f: impl FnOnce() -> YumaResult + 'static) {
+        self.callbacks.add(name, f)
     }
 
     // # Safety
@@ -143,7 +156,8 @@ impl YumaCtx {
         //     servicer.enable(&to_enable)
         // }
 
-        for fun in self.callbacks.queued.drain(..) {
+        for (name, fun) in self.callbacks.queued.drain(..) {
+            log::info!("Running callback: {name}");
             fun().unwrap();
         }
     }
@@ -184,16 +198,10 @@ mod test {
     use crate::prelude::*;
 
     #[test]
-    fn allowed_addables() {
+    fn implicit_drop_callback() {
         let mut ctx = ctx();
-
         ctx.skip_cache();
 
-        ctx.add("test");
-        ctx.add("test".b().on_hosts(&["test"]));
-        ctx.add(["test"]);
-        ctx.add(["test", "test"].b());
-        // ctx.add(("test", "test").builder());
-        ctx.add(["test".b()].b());
+        ctx.schedule("test", || Ok(()));
     }
 }
