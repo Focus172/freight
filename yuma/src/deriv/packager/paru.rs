@@ -27,6 +27,7 @@ impl PackageBackend for ParuPackager {
         Command::new("paru")
             .arg("-S")
             .arg("--needed")
+            .arg("--yes")
             .args(names)
             .spawn()
             .unwrap()
@@ -37,6 +38,7 @@ impl PackageBackend for ParuPackager {
     fn remove_packages(&self, names: &[&str]) {
         Command::new("paru")
             .arg("-Rns")
+            .arg("--yes")
             .args(names)
             .spawn()
             .unwrap()
@@ -48,6 +50,7 @@ impl PackageBackend for ParuPackager {
         Command::new("paru")
             .arg("-S")
             .arg("--needed")
+            .arg("--yes")
             .arg(name)
             .spawn()
             .unwrap()

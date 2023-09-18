@@ -1,3 +1,5 @@
+#![feature(trait_alias)]
+
 pub mod callbacks;
 pub mod deriv;
 pub mod error;
@@ -7,6 +9,7 @@ pub mod service;
 use crate::prelude::*;
 
 use deriv::list::AsPkgBuilderList;
+use requestty::Question;
 // re-export of inline documentation functions
 pub use yumadoc::inline_doc as yumadoc;
 
@@ -22,6 +25,8 @@ pub struct YumaCtx {
     #[serde(skip)]
     callbacks: Callbacks,
     #[serde(skip)]
+    /// An internal variable used when testing that allows for not cluttering
+    /// file system
     write_on_drop: bool,
 }
 
@@ -61,7 +66,7 @@ impl YumaCtx {
 
     /// Adds a function to a list of callbacks to be ran after the next call to
     /// update
-    pub fn schedule(&mut self, name: impl Into<String>, f: impl FnOnce() -> YumaResult + 'static) {
+    pub fn schedule(&mut self, name: impl Into<String>, f: impl callbacks::YumaCallbackSig) {
         self.callbacks.add(name, f)
     }
 
@@ -83,7 +88,7 @@ impl YumaCtx {
         let packager = crate::deriv::Packager::guess();
 
         for pkg in self.packages.enabled.iter_mut() {
-            log::info!("installing: {}", &pkg.name);
+            log::info!("install {} ?", &pkg.name);
             // pkg.packager.install(&pkg.name);
             // packager.install(&pkg.name);
             packager.install_packages(&[&pkg.name]);
@@ -106,7 +111,7 @@ impl YumaCtx {
     pub fn update(&mut self) {
         let packager = crate::deriv::Packager::guess();
 
-        log::info!("installing all thing things");
+        log::info!("Begining install");
 
         let pkgnames: Vec<&str> = self
             .packages
@@ -133,13 +138,25 @@ impl YumaCtx {
             .collect();
 
         if !to_remove.is_empty() {
-            log::info!("Removing: {:?}", to_remove);
-            packager.remove_packages(&to_remove);
+            let q = Question::confirm("remove")
+                .message(format!("Remove {:?} ?", to_remove))
+                .default(false)
+                .build();
+
+            if requestty::prompt_one(q).unwrap().as_bool().unwrap() {
+                packager.remove_packages(&to_remove);
+            }
         }
 
         if !to_install.is_empty() {
-            log::info!("Installing: {:?}", to_install);
-            packager.install_packages(&to_install);
+            let q = Question::confirm("install")
+                .message(format!("Install {:?} ?", to_remove))
+                .default(false)
+                .build();
+
+            if requestty::prompt_one(q).unwrap().as_bool().unwrap() {
+                packager.install_packages(&to_install);
+            }
         }
 
         // let mut servicer = Services::guess();
