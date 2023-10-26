@@ -1,10 +1,13 @@
-use std::env;
+mod list;
 
-use super::{Packager, Pkg};
+pub use self::list::AsPkgBuilderList;
 
 use crate::prelude::*;
 
-#[derive(Default)]
+use crate::deriv::packager::Packager;
+use std::env;
+
+#[derive(Debug, Default)]
 pub struct PkgBuilder {
     names: Vec<String>,
     allowed_hostnames: Option<Vec<String>>,
@@ -65,26 +68,20 @@ impl PkgBuilder {
     }
 
     pub fn on_host(mut self, host: impl Into<String>) -> Self {
-        match self.allowed_hostnames.as_mut() {
-            Some(h) => h.push(host.into()),
-            None => self.allowed_hostnames = Some(vec![host.into()]),
-        }
+        let hosts = self.allowed_hostnames.get_or_insert(vec![]);
+        hosts.push(host.into());
         self
     }
 
-    pub fn on_hosts(mut self, hosts: &[&str]) -> Self {
-        match self.allowed_hostnames.as_mut() {
-            Some(h) => h.extend(hosts.iter().map(ToString::to_string)),
-            None => self.allowed_hostnames = Some(hosts.iter().map(ToString::to_string).collect()),
-        }
+    pub fn on_hosts(mut self, new_hosts: impl IntoIterator<Item = impl Into<String>>) -> Self {
+        let hosts = self.allowed_hostnames.get_or_insert(vec![]);
+        hosts.extend(new_hosts.into_iter().map(Into::into));
         self
     }
 
-    pub fn on_arches(mut self, arches: &[&str]) -> Self {
-        match self.allowed_arches.as_mut() {
-            Some(a) => a.extend(arches.iter().map(ToString::to_string)),
-            None => self.allowed_hostnames = Some(arches.iter().map(ToString::to_string).collect()),
-        }
+    pub fn on_arches(mut self, new_arches: impl IntoIterator<Item = impl Into<String>>) -> Self {
+        let arches = self.allowed_arches.get_or_insert(vec![]);
+        arches.extend(new_arches.into_iter().map(Into::into));
         self
     }
 
@@ -94,26 +91,15 @@ impl PkgBuilder {
     }
 }
 
-pub trait AsBuilder: Into<PkgBuilder> {
+pub trait AsBuilder {
+    fn b(self) -> PkgBuilder;
+}
+
+impl<I: Into<PkgBuilder>> AsBuilder for I {
     fn b(self) -> PkgBuilder {
         self.into()
     }
 }
-
-impl AsBuilder for &str {}
-impl AsBuilder for String {}
-impl AsBuilder for PkgBuilder {}
-// impl AsBuilder for &dyn AsBuilder {}
-
-impl<const N: usize> AsBuilder for [&str; N] {}
-impl<const N: usize> AsBuilder for [String; N] {}
-impl<const N: usize> AsBuilder for [PkgBuilder; N] {}
-// impl<const N: usize> AsBuilder for [&dyn AsBuilder; N] {}
-
-impl AsBuilder for &[String] {}
-impl AsBuilder for &[&str] {}
-impl AsBuilder for &[PkgBuilder] {}
-// impl AsBuilder for &[&dyn AsBuilder] {}
 
 impl From<&str> for PkgBuilder {
     fn from(value: &str) -> Self {
@@ -193,6 +179,8 @@ impl From<&[PkgBuilder]> for PkgBuilder {
 
 impl From<&[&str]> for PkgBuilder {
     fn from(value: &[&str]) -> Self {
+        // PERF: None of the data here is owned so both the array and elements
+        // need to be copied.
         PkgBuilder {
             names: value.iter().map(|s| s.to_string()).collect(),
             ..default()
@@ -202,6 +190,8 @@ impl From<&[&str]> for PkgBuilder {
 
 impl From<&[String]> for PkgBuilder {
     fn from(value: &[String]) -> Self {
+        // PERF: As with all the other data beind refs we don't own it so we
+        // have to copy (which is what [`slice::to_vec`] does).
         PkgBuilder {
             names: value.to_vec(),
             ..default()

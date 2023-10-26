@@ -3,21 +3,8 @@ use std::process::Command;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Default, Serialize, Deserialize)]
-pub struct Services {
-    pub enabled: Vec<Service>,
-}
-
-impl Services {
-    pub const fn new() -> Self {
-        Self {
-            enabled: Vec::new(),
-        }
-    }
-}
-
-#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct Service {
-    name: String,
+    pub name: String,
     // #[serde(skip)]
     // servicer: Servicer
 }

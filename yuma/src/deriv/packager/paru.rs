@@ -2,6 +2,7 @@ use std::process::Command;
 
 use super::PackageBackend;
 
+#[derive(Debug, Default)]
 pub struct ParuPackager;
 
 impl PackageBackend for ParuPackager {
@@ -23,7 +24,10 @@ impl PackageBackend for ParuPackager {
             .collect()
     }
 
-    fn install_packages(&self, names: &[&str]) {
+    fn install_packages(&self, pkgs: Box<dyn Iterator<Item = crate::prelude::Pkg>>) {
+        // TODO: convert package name to packager specific name.
+        let names: Vec<String> = pkgs.map(|p| p.name).collect();
+
         Command::new("paru")
             .arg("-S")
             .arg("--needed")
@@ -35,7 +39,10 @@ impl PackageBackend for ParuPackager {
             .unwrap();
     }
 
-    fn remove_packages(&self, names: &[&str]) {
+    fn remove_packages(&self, pkgs: Box<dyn Iterator<Item = crate::prelude::Pkg>>) {
+        // TODO: convert package name to packager specific name.
+        let names: Vec<String> = pkgs.map(|p| p.name).collect();
+
         Command::new("paru")
             .arg("-Rns")
             .arg("--yes")

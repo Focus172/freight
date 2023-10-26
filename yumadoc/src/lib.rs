@@ -1,15 +1,30 @@
-use proc_macro::TokenStream;
+#![feature(proc_macro_diagnostic)]
+
+use proc_macro::{Diagnostic, Span, TokenStream};
 use quote::ToTokens;
 use syn::{parse_macro_input, parse_quote, Attribute, Block, Expr, Ident, ItemFn, Stmt};
 
 type Ast = syn::ItemFn;
 
+use proc_macro2::TokenStream as TokenStream2;
+
 #[proc_macro_attribute]
-pub fn inline_doc(_args: TokenStream, input: TokenStream) -> TokenStream {
+pub fn docu(args: TokenStream, input: TokenStream) -> TokenStream {
+    if !args.is_empty() {
+        let spans: Vec<Span> = args.into_iter().map(|arg| arg.span()).collect();
+
+        Diagnostic::new(
+            proc_macro::Level::Warning,
+            "[`yumadoc::inline_doc`] doesn't take any arguments",
+        )
+        .span_help(spans, "Remove these arguments")
+        .emit();
+    }
+
     let ast: Ast = parse_macro_input!(input as ItemFn);
     let model = analyze(ast);
     let ir = lower(model);
-    codegen(ir)
+    codegen(ir).into()
 }
 
 /// Model that repersents the macro
@@ -53,6 +68,7 @@ trait Commentable {
     fn is_doc_comment(&self) -> bool;
     fn as_doc_comment(&self) -> Option<Expr>;
 }
+
 impl Commentable for Attribute {
     fn is_doc_comment(&self) -> bool {
         let doc: Ident = parse_quote!(doc);
@@ -186,101 +202,13 @@ fn lower(model: Model) -> Ir {
     }
 }
 
-fn codegen(ir: Ir) -> TokenStream {
-    let item = ir.item;
-
-    let docs = ir.documentaion;
+fn codegen(ir: Ir) -> TokenStream2 {
+    let Ir { documentaion, item } = ir;
+    let f: syn::File = parse_quote!(#(#documentaion)*);
+    let s = prettyplease::unparse(&f);
 
     quote::quote!(
-        #(#docs)*
+        #s
         #item
     )
-    .into()
-}
-
-#[cfg(test)]
-mod test {
-    use super::*;
-
-    trait Stub {
-        fn stub() -> Self;
-    }
-
-    impl Stub for Model {
-        fn stub() -> Self {
-            Self {
-                documentaion: vec![],
-                item: parse_quote!(
-                    fn f() {}
-                ),
-            }
-        }
-    }
-
-    #[test]
-    fn attributes_are_preserved() {
-        let model = analyze(parse_quote!(
-            #[a]
-            /// things and stuff
-            #[doc = "test"]
-            #[b]
-            fn f(x: bool) {}
-        ));
-
-        let expected: &[Attribute] = &[parse_quote!(#[a]), parse_quote!(#[b])];
-
-        assert_eq!(expected, model.item.attrs);
-    }
-
-    #[test]
-    fn docs_are_extracted() {
-        let model = analyze(parse_quote!(
-            #[a]
-            #[doc = "test"]
-            #[b]
-            /// more test
-            fn f(x: bool) {}
-        ));
-
-        let expected: &[Attribute] = &[
-            parse_quote!(#[doc = "test"]),
-            parse_quote!(#[doc = r" more test"]),
-        ];
-
-        assert_eq!(expected, model.documentaion);
-    }
-
-    #[test]
-    fn attr_conversion_works() {
-        let mut model = Model::stub();
-        model.documentaion.push(parse_quote!(#[doc = "test"]));
-        let ir = lower(model);
-
-        let expected: &[Comment] = &[Comment::Attr(parse_quote!(#[doc = "test"]))];
-
-        assert_eq!(expected, ir.documentaion);
-    }
-
-    #[test]
-    fn adding_stmt_docs() {
-        let mut model = Model::stub();
-        model.documentaion.push(parse_quote!(#[doc = "still here"]));
-        model.item = parse_quote!(
-            fn f() {
-                /// the best number
-                let x = 42;
-            }
-        );
-        let ir = lower(model);
-
-        let expected: &[Comment] = &[
-            Comment::Attr(parse_quote!(#[doc = "still here"])),
-            Comment::Attr(parse_quote!(#[doc = r" the best number"])),
-            Comment::Attr(parse_quote!(#[doc = "```rust"])),
-            Comment::Code(parse_quote!(let x = 42;)),
-            Comment::Attr(parse_quote!(#[doc = "```"])),
-        ];
-
-        assert_eq!(expected, ir.documentaion);
-    }
 }

@@ -2,6 +2,7 @@ use std::process::Command;
 
 use super::PackageBackend;
 
+#[derive(Debug, Default)]
 pub struct BrewPackager;
 
 impl PackageBackend for BrewPackager {
@@ -23,7 +24,10 @@ impl PackageBackend for BrewPackager {
             .collect()
     }
 
-    fn install_packages(&self, names: &[&str]) {
+    fn install_packages(&self, pkgs: Box<dyn Iterator<Item = crate::prelude::Pkg>>) {
+        // TODO: convert package name to packager specific name.
+        let names: Vec<String> = pkgs.map(|p| p.name).collect();
+
         Command::new("brew")
             .arg("install")
             .args(names)
@@ -33,7 +37,10 @@ impl PackageBackend for BrewPackager {
             .unwrap();
     }
 
-    fn remove_packages(&self, names: &[&str]) {
+    fn remove_packages(&self, pkgs: Box<dyn Iterator<Item = crate::prelude::Pkg>>) {
+        // TODO: convert package name to packager specific name.
+        let names: Vec<String> = pkgs.map(|p| p.name).collect();
+
         Command::new("brew")
             .arg("remove")
             .args(names)

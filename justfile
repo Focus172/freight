@@ -13,4 +13,4 @@ publish:
     cargo test -q
 
 loc:
-    find src/ -name "*.rs" | xargs cat | wc -l
+    find yuma/src/ -name "*.rs" | xargs cat | wc -l
