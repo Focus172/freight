@@ -13,9 +13,9 @@ lazy_static = "1"
 serde = { version = "1", features = ["derive"] }
 json = { package = "serde_json", version = "1" }
 
-nix = { version = "0.27", default-features = false, features = ["hostname"] }
+nix = { version = "0.27", features = ["hostname"] }
 
-simplelog = "0.12"
+simplelog = { version = "0.12", features = ["paris"] }
 log = "0.4"
 
 requestty = "0.5"

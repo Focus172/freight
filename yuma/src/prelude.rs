@@ -7,6 +7,7 @@ pub use crate::deriv::pkg::builder::PkgBuilder;
 pub use crate::deriv::pkg::Pkg;
 pub use crate::deriv::srv::Service;
 pub use crate::error::{Result, YumaError};
+pub use crate::y;
 
 pub use serde::{Deserialize, Serialize};
 
@@ -16,7 +17,7 @@ pub use serde::{Deserialize, Serialize};
 /// In the the future will make good guesses about your use case to add so
 /// goodness to your process.
 pub fn ctx() -> YumaCtx {
-    petty::install().expect("Don't try to create a context twice");
+    resu::install().expect("Don't try to create a context twice");
     YumaCtx::new()
 }
 

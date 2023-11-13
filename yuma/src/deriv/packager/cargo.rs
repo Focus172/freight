@@ -24,7 +24,7 @@ impl PackageBackend for CargoPackager {
         todo!()
     }
 
-    fn install(&self, name: &str) {
+    fn install(&self, _name: &str) {
         todo!()
     }
 }

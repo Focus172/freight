@@ -1,4 +1,4 @@
-pub use petty::eyre::Result;
+pub use resu::eyre::Result;
 
 // pub type YumaResult = std::result::Result<(), YumaError>;
 use std::io;
@@ -13,7 +13,7 @@ pub enum YumaError {
     #[error("Packages specified that could not be resolved: {name:?}")]
     InvalidPackage { name: String },
     #[error(transparent)]
-    Static(#[from] petty::eyre::Error),
+    Static(#[from] resu::eyre::Error),
     #[error("Unknown error")]
     Unknown,
 }

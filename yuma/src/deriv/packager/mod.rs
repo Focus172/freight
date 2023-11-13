@@ -40,6 +40,13 @@ pub struct Packager {
     backend: SyncPackagerBackend,
 }
 
+impl PartialEq for Packager {
+    fn eq(&self, other: &Self) -> bool {
+        self._packager_type == other._packager_type
+    }
+}
+impl Eq for Packager {}
+
 #[derive(Clone)]
 struct SyncPackagerBackend(Arc<dyn PackageBackend>);
 impl Default for SyncPackagerBackend {
@@ -98,7 +105,7 @@ impl std::ops::Deref for Packager {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 pub enum PackagerType {
     Paru,
     Brew,
