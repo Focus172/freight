@@ -1,6 +1,11 @@
-use std::process::Command;
+use crate::prelude::*;
+
+use std::{collections::HashMap, fs, process::Command, sync::OnceLock};
 
 use super::PackageBackend;
+
+pub static PARU_NAME_MAP: OnceLock<HashMap<super::GenericName, super::SpecficName>> =
+    OnceLock::new();
 
 #[derive(Debug, Default)]
 pub struct ParuPackager;
@@ -24,45 +29,38 @@ impl PackageBackend for ParuPackager {
             .collect()
     }
 
-    fn install_packages(&self, pkgs: Box<dyn Iterator<Item = crate::prelude::Pkg>>) {
-        // TODO: convert package name to packager specific name.
-        let names: Vec<String> = pkgs.map(|p| p.name).collect();
-
+    fn install(&self, pkgs: Vec<String>) -> Result<()> {
         Command::new("paru")
             .arg("-S")
             .arg("--needed")
             // .arg("--yes")
-            .args(names)
-            .spawn()
-            .unwrap()
-            .wait()
-            .unwrap();
+            .args(pkgs)
+            .spawn()?
+            .wait()?;
+        Ok(())
     }
 
-    fn remove_packages(&self, pkgs: Box<dyn Iterator<Item = crate::prelude::Pkg>>) {
-        // TODO: convert package name to packager specific name.
-        let names: Vec<String> = pkgs.map(|p| p.name).collect();
-
+    fn remove_packages(&self, pkgs: Vec<String>) {
         Command::new("paru")
             .arg("-Rns")
             // .arg("--yes")
-            .args(names)
+            .args(pkgs)
             .spawn()
             .unwrap()
             .wait()
             .unwrap();
     }
 
-    fn install(&self, name: &str) {
-        Command::new("paru")
-            .arg("-S")
-            .arg("--needed")
-            // .arg("--yes")
-            .arg(name)
-            .spawn()
+    fn resolve_name(&self, name: super::GenericName) -> super::SpecficName {
+        PARU_NAME_MAP
+            .get_or_init(|| {
+                let path: &str = "/home/focus/dox/code/freight/shipyard/index.json";
+                let f = fs::File::open(path).unwrap();
+                json::from_reader(f).unwrap()
+            })
+            .get(&name)
             .unwrap()
-            .wait()
-            .unwrap();
+            .clone()
     }
 }
 

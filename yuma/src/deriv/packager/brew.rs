@@ -1,3 +1,5 @@
+use crate::prelude::*;
+
 use std::process::Command;
 
 use super::PackageBackend;
@@ -24,39 +26,27 @@ impl PackageBackend for BrewPackager {
             .collect()
     }
 
-    fn install_packages(&self, pkgs: Box<dyn Iterator<Item = crate::prelude::Pkg>>) {
-        // TODO: convert package name to packager specific name.
-        let names: Vec<String> = pkgs.map(|p| p.name).collect();
-
+    fn install(&self, pkgs: Vec<super::SpecficName>) -> Result<()> {
         Command::new("brew")
             .arg("install")
-            .args(names)
-            .spawn()
-            .unwrap()
-            .wait()
-            .unwrap();
+            .args(pkgs)
+            .spawn()?
+            .wait()?;
+
+        Ok(())
     }
 
-    fn remove_packages(&self, pkgs: Box<dyn Iterator<Item = crate::prelude::Pkg>>) {
-        // TODO: convert package name to packager specific name.
-        let names: Vec<String> = pkgs.map(|p| p.name).collect();
-
+    fn remove_packages(&self, pkgs: Vec<super::SpecficName>) {
         Command::new("brew")
             .arg("remove")
-            .args(names)
+            .args(pkgs)
             .spawn()
             .unwrap()
             .wait()
             .unwrap();
     }
 
-    fn install(&self, name: &str) {
-        Command::new("brew")
-            .arg("install")
-            .arg(name)
-            .spawn()
-            .unwrap()
-            .wait()
-            .unwrap();
+    fn resolve_name(&self, _name: super::GenericName) -> super::SpecficName {
+        todo!()
     }
 }

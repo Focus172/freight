@@ -1,6 +1,6 @@
 [package]
 name = "yuma"
-version = "0.2.1"
+version = "0.2.2"
 edition = "2021"
 
 [dependencies]
@@ -8,7 +8,6 @@ yumadoc = { path = "../yumadoc" }
 
 thiserror = "1"
 color-eyre = "0.6"
-lazy_static = "1"
 
 serde = { version = "1", features = ["derive"] }
 json = { package = "serde_json", version = "1" }

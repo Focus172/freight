@@ -3,7 +3,10 @@ mod cargo;
 mod paru;
 
 use std::fmt;
+use std::ops::Deref;
 use std::sync::Arc;
+
+use std::cell::LazyCell;
 
 use crate::prelude::*;
 
@@ -15,22 +18,32 @@ type ParuRc = Arc<self::ParuPackager>;
 type BrewRc = Arc<self::BrewPackager>;
 type CargRc = Arc<self::CargoPackager>;
 
-lazy_static::lazy_static!(
-    pub static ref PARU_PACKAGER: ParuRc = Default::default();
-    pub static ref BREW_PACKAGER: BrewRc = Default::default();
-    pub static ref CARG_PACKAGER: CargRc = Default::default();
-);
+thread_local! {
+pub static PARU_PACKAGER: LazyCell<ParuRc> = LazyCell::new(ParuRc::default);
+pub static BREW_PACKAGER: LazyCell<BrewRc> = LazyCell::new(BrewRc::default);
+pub static CARG_PACKAGER: LazyCell<CargRc> = Default::default();
+}
+
+#[derive(Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct GenericName(String);
+impl GenericName {
+    pub fn new(name: String) -> Self {
+        GenericName(name)
+    }
+}
+
+pub type SpecficName = String;
 
 pub trait PackageBackend {
     fn list_installed(&self) -> Vec<String>;
 
     fn list_leaves(&self) -> Vec<String>;
 
-    fn install_packages(&self, pkgs: Box<dyn Iterator<Item = Pkg>>);
+    fn install(&self, pkgs: Vec<SpecficName>) -> Result<()>;
 
-    fn remove_packages(&self, pkgs: Box<dyn Iterator<Item = Pkg>>);
+    fn remove_packages(&self, pkgs: Vec<SpecficName>);
 
-    fn install(&self, name: &str);
+    fn resolve_name(&self, name: GenericName) -> SpecficName;
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -79,14 +92,14 @@ impl Packager {
     pub fn paru() -> Self {
         Self {
             _packager_type: PackagerType::Paru,
-            backend: SyncPackagerBackend(PARU_PACKAGER.clone()),
+            backend: SyncPackagerBackend(PARU_PACKAGER.with(|b| b.deref().clone())),
         }
     }
 
     pub fn brew() -> Self {
         Self {
             _packager_type: PackagerType::Brew,
-            backend: SyncPackagerBackend(BREW_PACKAGER.clone()),
+            backend: SyncPackagerBackend(BREW_PACKAGER.with(|b| b.deref().clone())),
         }
     }
 }
@@ -105,7 +118,7 @@ impl std::ops::Deref for Packager {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 pub enum PackagerType {
     Paru,
     Brew,
@@ -114,4 +127,16 @@ pub enum PackagerType {
     // CargoToml,
     // Portage,
     // Frieght,
+}
+
+impl TryFrom<&str> for PackagerType {
+    type Error = resu::eyre::Report;
+
+    fn try_from(value: &str) -> std::result::Result<Self, Self::Error> {
+        match value {
+            "Paur" | "paur" => Ok(PackagerType::Paru),
+            "Brew" | "brew" => Ok(PackagerType::Brew),
+            name => Err(resu::eyre::eyre!("Unkown packager: {}", name)),
+        }
+    }
 }

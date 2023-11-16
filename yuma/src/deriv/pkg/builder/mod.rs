@@ -17,9 +17,9 @@ pub struct PkgBuilder {
 }
 
 impl PkgBuilder {
-    pub(crate) fn build(self) -> Option<Vec<Pkg>> {
+    pub(crate) fn build(self) -> Option<Pkgs> {
         // HACK: error handling here is a real goof
-        let hostname = nix::unistd::gethostname().ok()?.into_string().ok()?;
+        let hostname = nix::unistd::gethostname().unwrap().into_string().unwrap();
         let arch = env::consts::ARCH.to_string();
         let os = env::consts::OS.to_string();
 
@@ -43,15 +43,10 @@ impl PkgBuilder {
 
         let packager = self.packager.unwrap_or_default();
 
-        Some(
-            self.names
-                .iter()
-                .map(|name| Pkg {
-                    name: name.clone(),
-                    packager: packager.clone(),
-                })
-                .collect(),
-        )
+        Some(Pkgs {
+            names: self.names,
+            packager,
+        })
     }
 
     /// Configures the package to only be built in if the current os matches

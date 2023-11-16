@@ -1,10 +1,10 @@
 use crate::callbacks::{Callbacks, YumaCallbackSig};
-use crate::deriv::pkg::builder::AsPkgBuilderList;
-use crate::deriv::pkg::list::Packages;
+use crate::deriv::pkg::list::{AsPkgList, Packages};
 use crate::deriv::srv::Services;
 use crate::prelude::*;
 use requestty::Question;
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 use std::fs;
 
 #[derive(Debug, Default, Serialize, Deserialize)]
@@ -44,25 +44,29 @@ impl YumaCtx {
     /// ctx.add(["static", "array"].b());
     /// ctx.add(["build array".b()].b());
     /// ```
-    pub fn add<A>(&mut self, pkgs: A)
+    pub fn add<P>(&mut self, pkgs: P)
     where
-        A: AsPkgBuilderList,
+        P: AsPkgList,
     {
-        self.packages.add(pkgs.list().into_iter())
+        self.packages.add(pkgs.list());
     }
 
-    /// Alias for [`add`] for a potential name change
-    pub fn with(&mut self, pkgs: impl AsPkgBuilderList) {
+    /// Alias for [`YumaCtx::add`] for a potential name change
+    pub fn with<P>(&mut self, pkgs: P)
+    where
+        P: AsPkgList,
+    {
         self.add(pkgs)
     }
 
     /// Adds a function to a list of callbacks to be ran after the next call to
     /// update
-    pub fn schedule<F>(&mut self, name: impl Into<String>, f: F)
+    pub fn schedule<S, F>(&mut self, name: S, f: F)
     where
+        S: ToString,
         F: YumaCallbackSig,
     {
-        self.callbacks.add(name, f)
+        self.callbacks.add(name.to_string(), f)
     }
 
     // # Safety
@@ -104,54 +108,46 @@ impl YumaCtx {
     /// have multipule updates throughout your build so if a later stage fails
     /// you still have the core packages (like your kernal and drivers) working.
     pub fn update(&mut self) -> Result<()> {
+        log::info!("Starting Update.");
+
         // TODO: unwind the changes when an error occurs
-        let packager = crate::deriv::packager::Packager::guess();
 
-        log::info!("Begining install");
+        let packager = Packager::guess();
+        let installed: HashSet<String> = HashSet::from_iter(packager.list_installed());
 
-        let pkgnames: Vec<String> = self
-            .packages
-            .enabled
-            .iter()
-            .map(|p| p.name.to_owned())
-            .collect();
+        let mut prunable: HashSet<String> = HashSet::from_iter(packager.list_leaves());
 
-        // packager.install_packages(&pkgnames);
-
-        let installed = packager.list_leaves();
-        let allinstalled = packager.list_installed();
-
-        let to_remove: Vec<String> = installed
-            .iter()
-            .filter(|pkg| !pkgnames.contains(pkg))
-            .map(|s| s.to_owned())
-            .collect();
-
-        let to_install: Vec<String> = pkgnames
-            .iter()
-            .filter(|pkg| !allinstalled.contains(&pkg.to_string()))
-            .cloned()
-            .collect();
-
-        if !to_remove.is_empty() {
-            let q = Question::confirm("remove")
-                .message(format!("Remove {:?} ?", to_remove))
+        for mut pkgs in self.packages.enabled.drain(..) {
+            let q = Question::confirm("install")
+                .message(format!("Install {:?} ?", &pkgs.names))
                 .default(false)
                 .build();
 
-            if requestty::prompt_one(q).unwrap().as_bool().unwrap() {
-                packager.remove_packages(Box::new(to_remove.into_iter().map(Into::into)));
+            let requestty::Answer::Bool(yes) = requestty::prompt_one(q)? else {
+                unreachable!()
+            };
+
+            if yes {
+                // remove packages about to be installed from prunable list
+                pkgs.names.iter().for_each(|name| {
+                    prunable.remove(name);
+                });
+                // only install packages that are not already installed
+                pkgs.names.retain(|name| !installed.contains(name));
+                pkgs.packager.install(pkgs.names)?;
             }
         }
 
-        if !to_install.is_empty() {
-            let q = Question::confirm("install")
-                .message(format!("Install {:?} ?", to_install))
+        if !prunable.is_empty() {
+            let packager = Packager::guess();
+
+            let q = Question::confirm("remove")
+                .message(format!("Remove {:?} ?", prunable))
                 .default(false)
                 .build();
 
             if requestty::prompt_one(q).unwrap().as_bool().unwrap() {
-                packager.install_packages(Box::new(to_install.into_iter().map(|s| s.into())));
+                packager.remove_packages(prunable.into_iter().map(Into::into).collect());
             }
         }
 
@@ -168,6 +164,7 @@ impl YumaCtx {
         //     println!("Enabling services: {:?}", to_enable);
         //     servicer.enable(&to_enable)
         // }
+
         self.run_callbacks()?;
 
         Ok(())
@@ -175,7 +172,7 @@ impl YumaCtx {
 
     fn run_callbacks(&mut self) -> Result<()> {
         for (name, fun) in self.callbacks.queued.drain(..) {
-            log::info!("Running callback: {name}");
+            crate::log::info!("<red>Running callback</>: {name}");
             fun.call()?;
         }
         Ok(())

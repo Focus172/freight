@@ -1,3 +1,5 @@
+use crate::prelude::*;
+
 pub use super::PackageBackend;
 
 #[derive(Debug, Default)]
@@ -12,19 +14,15 @@ impl PackageBackend for CargoPackager {
         todo!()
     }
 
-    fn install_packages(&self, pkgs: Box<dyn Iterator<Item = crate::prelude::Pkg>>) {
-        // TODO: convert package name to packager specific name.
-        let _names: Vec<String> = pkgs.map(|p| p.name).collect();
+    fn install(&self, _pkgs: Vec<super::SpecficName>) -> Result<()> {
         todo!()
     }
 
-    fn remove_packages(&self, pkgs: Box<dyn Iterator<Item = crate::prelude::Pkg>>) {
-        // TODO: convert package name to packager specific name.
-        let _names: Vec<String> = pkgs.map(|p| p.name).collect();
+    fn remove_packages(&self, _pkgs: Vec<super::SpecficName>) {
         todo!()
     }
 
-    fn install(&self, _name: &str) {
+    fn resolve_name(&self, _name: super::GenericName) -> super::SpecficName {
         todo!()
     }
 }

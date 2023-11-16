@@ -7,7 +7,8 @@
 #![feature(
     trait_alias,
     // adt_const_params,
-    never_type
+    never_type,
+    lazy_cell
 )]
 #![forbid(unsafe_code)]
 

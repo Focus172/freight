@@ -34,11 +34,10 @@ impl Callbacks {
         Self { queued: Vec::new() }
     }
 
-    pub fn add<S, F>(&mut self, name: S, f: F)
+    pub fn add<F>(&mut self, name: String, f: F)
     where
-        S: Into<String>,
         F: YumaCallbackSig,
     {
-        self.queued.push((name.into(), YumaCallback::new(f)))
+        self.queued.push((name, YumaCallback::new(f)))
     }
 }

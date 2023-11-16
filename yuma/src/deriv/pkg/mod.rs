@@ -6,21 +6,31 @@ pub mod builder;
 pub mod list;
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
-pub struct Pkg {
-    pub name: String,
+pub struct Pkgs {
+    pub names: Vec<String>,
     pub packager: Packager,
 }
 
-impl Pkg {
-    pub fn new(backend: PackagerType, name: &str) -> Self {
+impl Pkgs {
+    pub fn new<I>(backend: PackagerType, names: I) -> Self
+    where
+        I: Iterator<Item = String>,
+    {
         let packager = match backend {
             super::packager::PackagerType::Paru => Packager::paru(),
             super::packager::PackagerType::Brew => Packager::brew(),
         };
         Self {
-            name: name.into(),
+            names: names.collect(),
             packager,
         }
+    }
+
+    pub fn add<I>(&mut self, names: I)
+    where
+        I: Iterator<Item = String>,
+    {
+        self.names.extend(names)
     }
 
     // pub const fn named(name: &'static str) -> Self {
@@ -42,16 +52,16 @@ impl Pkg {
     }
 }
 
-impl From<&str> for Pkg {
+impl From<&str> for Pkgs {
     fn from(value: &str) -> Self {
         value.to_owned().into()
     }
 }
 
-impl From<String> for Pkg {
+impl From<String> for Pkgs {
     fn from(value: String) -> Self {
-        Pkg {
-            name: value,
+        Pkgs {
+            names: vec![value],
             packager: Packager::guess(),
         }
     }
