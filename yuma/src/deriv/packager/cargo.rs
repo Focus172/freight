@@ -18,7 +18,7 @@ impl PackageBackend for CargoPackager {
         todo!()
     }
 
-    fn remove_packages(&self, _pkgs: Vec<super::SpecficName>) {
+    fn remove(&self, _pkgs: Vec<super::SpecficName>) -> Result<()> {
         todo!()
     }
 

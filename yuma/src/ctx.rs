@@ -2,31 +2,37 @@ use crate::callbacks::{Callbacks, YumaCallbackSig};
 use crate::deriv::pkg::list::{AsPkgList, Packages};
 use crate::deriv::srv::Services;
 use crate::prelude::*;
-use requestty::Question;
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
 use std::fs;
+use stub::Stub;
 
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Stub)]
 pub struct YumaCtx {
     packages: Packages,
     services: Services,
     #[serde(skip)]
     callbacks: Callbacks,
+    /// Determins if this context should resolve dynamically and to help with
+    /// testing.
     #[serde(skip)]
-    /// An internal variable used when testing that allows for not cluttering
-    /// file system
-    write_on_drop: bool,
+    is_interactive: bool,
+}
+
+impl Default for YumaCtx {
+    fn default() -> Self {
+        let is_interactive = atty::is(atty::Stream::Stdout);
+        Self {
+            packages: Default::default(),
+            services: Default::default(),
+            callbacks: Default::default(),
+            is_interactive,
+        }
+    }
 }
 
 impl YumaCtx {
-    pub const fn new() -> Self {
-        Self {
-            packages: Packages::new(),
-            services: Services::new(),
-            callbacks: Callbacks::new(),
-            write_on_drop: true,
-        }
+    pub fn new() -> Self {
+        Self::default()
     }
 
     /// Interface for adding to the pkglist. See [`PkgBuilder`] for info
@@ -36,7 +42,7 @@ impl YumaCtx {
     /// ```rust
     /// use yuma::prelude::*;
     /// let mut ctx = ctx();
-    /// # ctx.skip_cache();
+    /// # ctx.dry_run();
     ///
     /// ctx.add("str");
     /// ctx.add("pkg".b().on_host("hostname"));
@@ -108,49 +114,15 @@ impl YumaCtx {
     /// have multipule updates throughout your build so if a later stage fails
     /// you still have the core packages (like your kernal and drivers) working.
     pub fn update(&mut self) -> Result<()> {
-        log::info!("Starting Update.");
+        log::debug!("Waiting for last cycles callbacks to end.");
+        self.callbacks.wait()?;
 
         // TODO: unwind the changes when an error occurs
+        log::info!("Starting Update.");
 
-        let packager = Packager::guess();
-        let installed: HashSet<String> = HashSet::from_iter(packager.list_installed());
+        self.packages.install()?;
 
-        let mut prunable: HashSet<String> = HashSet::from_iter(packager.list_leaves());
-
-        for mut pkgs in self.packages.enabled.drain(..) {
-            let q = Question::confirm("install")
-                .message(format!("Install {:?} ?", &pkgs.names))
-                .default(false)
-                .build();
-
-            let requestty::Answer::Bool(yes) = requestty::prompt_one(q)? else {
-                unreachable!()
-            };
-
-            if yes {
-                // remove packages about to be installed from prunable list
-                pkgs.names.iter().for_each(|name| {
-                    prunable.remove(name);
-                });
-                // only install packages that are not already installed
-                pkgs.names.retain(|name| !installed.contains(name));
-                pkgs.packager.install(pkgs.names)?;
-            }
-        }
-
-        if !prunable.is_empty() {
-            let packager = Packager::guess();
-
-            let q = Question::confirm("remove")
-                .message(format!("Remove {:?} ?", prunable))
-                .default(false)
-                .build();
-
-            if requestty::prompt_one(q).unwrap().as_bool().unwrap() {
-                packager.remove_packages(prunable.into_iter().map(Into::into).collect());
-            }
-        }
-
+        // ----------> self.services.install()
         // let mut servicer = Services::guess();
         // let enabled = servicer.list_leaves_enabled();
         //
@@ -165,34 +137,29 @@ impl YumaCtx {
         //     servicer.enable(&to_enable)
         // }
 
-        self.run_callbacks()?;
+        self.callbacks.run()?;
 
-        Ok(())
-    }
-
-    fn run_callbacks(&mut self) -> Result<()> {
-        for (name, fun) in self.callbacks.queued.drain(..) {
-            crate::log::info!("<red>Running callback</>: {name}");
-            fun.call()?;
-        }
         Ok(())
     }
 
     /// Sets an internal variable that singals to not cache the output of this
     /// derivation. This can allow for building a revertable version of your
     /// system or for running unit test on your config if you are ill
-    pub fn skip_cache(&mut self) {
-        self.write_on_drop = false;
+    pub fn dry_run(&mut self) {
+        self.is_interactive = false;
     }
 }
 
 impl Drop for YumaCtx {
     fn drop(&mut self) {
-        self.run_callbacks().unwrap();
+        self.callbacks.run().unwrap();
+        self.callbacks.wait().unwrap();
 
-        if self.write_on_drop {
-            let w = fs::File::create("./.yumacache.json").unwrap();
-            json::to_writer_pretty(w, self).unwrap();
-        }
+        gaurd!(self.is_interactive, "Skipping cache and pruning");
+
+        let w = fs::File::create("./.yumacache.json").unwrap();
+        json::to_writer_pretty(w, self).unwrap();
+
+        self.packages.prune().unwrap();
     }
 }

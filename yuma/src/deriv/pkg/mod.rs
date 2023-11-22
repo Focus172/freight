@@ -1,13 +1,14 @@
 use serde::{Deserialize, Serialize};
+use stub::Stub;
 
-use super::packager::{Packager, PackagerType};
+use super::packager::{Packager, PackagerType, SpecficName};
 
 pub mod builder;
 pub mod list;
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Stub)]
 pub struct Pkgs {
-    pub names: Vec<String>,
+    pub names: Vec<SpecficName>,
     pub packager: Packager,
 }
 
@@ -16,10 +17,8 @@ impl Pkgs {
     where
         I: Iterator<Item = String>,
     {
-        let packager = match backend {
-            super::packager::PackagerType::Paru => Packager::paru(),
-            super::packager::PackagerType::Brew => Packager::brew(),
-        };
+        let packager = backend.into();
+
         Self {
             names: names.collect(),
             packager,
@@ -41,13 +40,13 @@ impl Pkgs {
     // }
 
     pub fn backend(&mut self, backend: PackagerType) {
-        match backend {
-            super::packager::PackagerType::Paru => {
-                self.packager = Packager::paru();
-            }
-            super::packager::PackagerType::Brew => {
-                self.packager = Packager::brew();
-            }
+        self.packager = backend.into();
+    }
+
+    pub fn from_names<const N: usize>(names: [&str; N]) -> Self {
+        Self {
+            names: names.into_iter().map(ToOwned::to_owned).collect(),
+            packager: Packager::guess(),
         }
     }
 }

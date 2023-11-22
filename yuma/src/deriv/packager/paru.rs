@@ -40,15 +40,14 @@ impl PackageBackend for ParuPackager {
         Ok(())
     }
 
-    fn remove_packages(&self, pkgs: Vec<String>) {
+    fn remove(&self, pkgs: Vec<String>) -> Result<()> {
         Command::new("paru")
             .arg("-Rns")
             // .arg("--yes")
             .args(pkgs)
-            .spawn()
-            .unwrap()
-            .wait()
-            .unwrap();
+            .spawn()?
+            .wait()?;
+        Ok(())
     }
 
     fn resolve_name(&self, name: super::GenericName) -> super::SpecficName {

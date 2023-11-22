@@ -5,7 +5,7 @@ install:
     cp freight-cli/freight ~/.local/bin
 
 build:
-    cargo build -q
+    cargo build
 
 publish:
     cargo fmt

@@ -18,3 +18,6 @@ simplelog = { version = "0.12", features = ["paris"] }
 log = "0.4"
 
 requestty = "0.5"
+atty = "0.2"
+# stub = { git = "https://github.com/focus172/stub" }
+stub = { path = "../../stub/stub" }

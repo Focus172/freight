@@ -36,14 +36,13 @@ impl PackageBackend for BrewPackager {
         Ok(())
     }
 
-    fn remove_packages(&self, pkgs: Vec<super::SpecficName>) {
+    fn remove(&self, pkgs: Vec<super::SpecficName>) -> Result<()> {
         Command::new("brew")
             .arg("remove")
             .args(pkgs)
-            .spawn()
-            .unwrap()
-            .wait()
-            .unwrap();
+            .spawn()?
+            .wait()?;
+        Ok(())
     }
 
     fn resolve_name(&self, _name: super::GenericName) -> super::SpecficName {

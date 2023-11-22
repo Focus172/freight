@@ -1,12 +1,11 @@
-use yumadoc::docu;
-
+// #[yumadoc::docu]
+#[test]
 #[allow(unused)]
-// #[docu("this", should, comp1le fa1l)]
 fn test() {
     /// the universe is impressed by this number
     let mut magic_number = 42;
 
-    // magic_number = 39;
+    magic_number = 3;
 
     /// true magic
     assert_eq!(magic_number, 3);

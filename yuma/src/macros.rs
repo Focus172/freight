@@ -13,44 +13,66 @@
 /// ```
 #[macro_export]
 macro_rules! y {
-    // base case fore recursion
+    // base cases for recursion
     () => {};
+    // ( $p:ident ) => {};
 
-    // Simple conversion case
-    (PKG $name:ident) => { Into::<$crate::prelude::Pkgs>::into(stringify!($name)) };
-
-    // Full constructor case
-    (PKG $name:ident FROM $pkgr:ident) => {{
-        const __PKGR: $crate::deriv::packager::PackagerType = y!(PKGR $pkgr);
-        const __NAME: &'static str = stringify!($name);
-        $crate::prelude::Pkgs::new(__PKGR, __NAME)
-    }};
-
-
-    (PKG $($es:ident),+ AS mut $name:ident) => {
-        let mut $name = Vec::from([ $(y! { PKG $es }),+ ])
+    // Collect a set of names
+    (PKG [ $($es:ident),+ ] $( $rest:tt )* ) => {
+        let mut p = Pkgs::from_names([ $( stringify!($es) ),+ ]);
+        y! { @ p $( $rest )* }
     };
 
-    (PKG $($es:ident),+ AS $name:ident) => {
-        let $name = Vec::from([ $(y! { PKG $es }),+ ]);
-    };
-
-    (PKG $($es:ident),+) => {
-        Vec::from([ $(y! { PKG $es }),+ ])
+    // one name
+    (PKG $name:ident $( $rest:tt )* ) => {
+        let mut p = Pkgs::from(stringify!($name));
+        y! { @ p $( $rest )* }
     };
 
 
-    // construct many with shorthand
-    (PKG $($es:ident),+; $($rest:tt)*) => {
-        Vec::from([ $(y! { PKG $es }),+ ])
-        $crate::y!($rest);
+
+    (@ $p:ident FROM $pkgr:ident $( $rest:tt )* ) => {
+        let __pkgr = y!(@ PKGR $pkgr);
+        $p.backend(__pkgr);
+        y! { @ $p $( $rest )* }
     };
 
-    // construct many with full constructor
-    (PKG $($es:ident),+ FROM $p:ident) => { Vec::from([ $(y! { PKG $es FROM $p}),+ ]) };
+    // Terminating statements. These explicitally insert a line ending to cause
+    // a compile error if anything is after them
+    (@ $p:ident IN $ctx:ident $( $rest:tt )*) => {
+        $ctx.with($p);
+        y! { ; $( $rest )* }
+    };
 
-    (PKGR brew) => { $crate::deriv::packager::PackagerType::Brew };
-    (PKGR paru) => { $crate::deriv::packager::PackagerType::Paru };
+    (@ $p:ident AS $name:ident $( $rest:tt )* ) => {
+        let mut $name = $p;
+        y! { ; $( $rest )* }
+    };
 
-    (INSTALL $name:ident) => {};
+
+    // internal function to get names of pkgrs
+    (@ PKGR brew) => {
+        $crate::deriv::packager::PackagerType::Brew
+    };
+    (@ PKGR paru) => {
+        $crate::deriv::packager::PackagerType::Paru
+    };
+    (@ PKGR fake) => {
+        $crate::deriv::packager::PackagerType::Fake
+    };
+    // (INSTALL $name:ident) => {};
+
+    // line endings
+    ( ; $($rest:tt)* ) => { y! { $( $rest )* } };
+    ( @ $p:ident $($rest:tt)* ) => { y! { $( $rest )* } };
+}
+
+#[macro_export]
+macro_rules! gaurd {
+    ($cond:expr, $( $msg:expr ),+ ) => {
+        if !$cond {
+            $crate::log::info!( $( $msg ),+ );
+            return Default::default();
+        }
+    };
 }

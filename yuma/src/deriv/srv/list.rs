@@ -1,8 +1,9 @@
 use serde::{Deserialize, Serialize};
 
 use super::Service;
+use crate::prelude::*;
 
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Default, Serialize, Deserialize, Stub)]
 pub struct Services {
     pub enabled: Vec<Service>,
 }
