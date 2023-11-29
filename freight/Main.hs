@@ -2,7 +2,7 @@ module Main where
 
 main :: IO ()
 main = do
-  let 
+  let
     sum = fib 5
     msg = "welcome to frieght"
           ++ "\n"
